@@ -8,10 +8,31 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const defaultWidth int = 30
 const defaultHeight int = 20
+
+var headerStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(lipgloss.Color("#FAFAFA")).
+	Background(lipgloss.Color("#7D56F4"))
+
+var grassBackgroundStyle = lipgloss.NewStyle().
+	Background(lipgloss.Color("#aad751"))
+
+var grassBackgroudStyle2 = lipgloss.NewStyle().
+	Background(lipgloss.Color("#a2d149"))
+
+var snakeStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#4876ec"))
+
+var appleStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#e7471d"))
+
+var borderStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#000000"))
 
 type point struct {
 	x, y int
@@ -115,9 +136,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "esc":
 			m.paused = !m.paused
-		case "space":
+		case " ":
 			m.paused = !m.paused
-
 		case "up", "k":
 			// If the snake is moving down, ignore the up key.
 			if m.previousDirection.y != 1 {
@@ -159,24 +179,38 @@ func snakeContains(snake []point, p point) bool {
 }
 
 func (m model) View() string {
-	s := fmt.Sprintf("Snake length: %d", len(m.snake))
+
+	s := headerStyle.Width(m.width * 2).Render(fmt.Sprintf("Snake length: %d", len(m.snake)))
 	if m.paused {
 		s += " (paused)"
 	}
 	s += "\n"
 	for y := 0; y < m.height; y++ {
 		for x := 0; x < m.width; x++ {
-			if x == 0 || x == m.width-1 || y == 0 || y == m.height-1 {
-				s += "#"
-			} else if (snakeContains(m.snake, point{x: x, y: y})) {
-				s += "O"
-			} else if x == m.apple.x && y == m.apple.y {
-				s += "A"
-			} else {
-				s += " "
+			currentGrassStyle := grassBackgroundStyle
+			if (x+y)%2 == 0 {
+				currentGrassStyle = grassBackgroudStyle2
 			}
-			// extra space for extra horizontal spacing
-			s += " "
+
+			renderExtraSpace := true
+
+			if x == 0 || x == m.width-1 || y == 0 || y == m.height-1 {
+				s += borderStyle.Inherit(currentGrassStyle).Render("##")
+
+				renderExtraSpace = false
+			} else if (snakeContains(m.snake, point{x: x, y: y})) {
+
+				s += snakeStyle.Inherit(currentGrassStyle).Render("O")
+			} else if x == m.apple.x && y == m.apple.y {
+				s += appleStyle.Inherit(currentGrassStyle).Render("A")
+			} else {
+				s += currentGrassStyle.Render(" ")
+			}
+
+			if renderExtraSpace {
+				// extra space for extra horizontal spacing
+				s += currentGrassStyle.Render(" ")
+			}
 
 			if x == m.width-1 {
 				s += "\n"
