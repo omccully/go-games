@@ -7,32 +7,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const defaultWidth int = 30
 const defaultHeight int = 20
-
-var headerStyle = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(lipgloss.Color("#FAFAFA")).
-	Background(lipgloss.Color("#7D56F4"))
-
-var grassBackgroundStyle = lipgloss.NewStyle().
-	Background(lipgloss.Color("#aad751"))
-
-var grassBackgroudStyle2 = lipgloss.NewStyle().
-	Background(lipgloss.Color("#a2d149"))
-
-var snakeStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#4876ec"))
-
-var appleStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#e7471d"))
-
-var borderStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("#000000"))
 
 type point struct {
 	x, y int
@@ -44,11 +24,20 @@ type model struct {
 	width             int
 	height            int
 	paused            bool
+	pauseMenuList     list.Model
 	apple             point
 	snake             []point
 	previousDirection point
 	snakeDirection    point
 }
+
+type pauseMenuItem struct {
+	title, desc string
+}
+
+func (i pauseMenuItem) Title() string       { return i.title }
+func (i pauseMenuItem) Description() string { return i.desc }
+func (i pauseMenuItem) FilterValue() string { return i.title }
 
 func initialModel() model {
 	width := defaultWidth
@@ -68,7 +57,19 @@ func initialModel() model {
 		}
 	}
 
+	items := []list.Item{
+		pauseMenuItem{title: "Resume (ESC or space)", desc: ""},
+		pauseMenuItem{title: "Quit (CTRL+C or q)", desc: ""},
+	}
+	pauseMenuList := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	pauseMenuList.Title = "Game Paused"
+	pauseMenuList.SetSize(30, 15)
+	pauseMenuList.SetShowStatusBar(false)
+	pauseMenuList.SetFilteringEnabled(false)
+	pauseMenuList.SetShowHelp(false)
+	pauseMenuList.DisableQuitKeybindings()
 	theModel := model{
+		pauseMenuList:     pauseMenuList,
 		width:             width,
 		height:            height,
 		snake:             []point{{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 5, y: 2}},
@@ -98,7 +99,40 @@ func (m model) getNextAppleLocation() point {
 	}
 }
 
+func (m model) isPauseMsg(msg tea.Msg) bool {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			return true
+		case " ":
+			return true
+		}
+	}
+	return false
+}
+
+func isForceQuitMsg(msg tea.Msg) bool {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return true
+		}
+	}
+	return false
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if isForceQuitMsg(msg) {
+		return m, tea.Quit
+	}
+
+	if m.isPauseMsg(msg) {
+		m.paused = !m.paused
+		return m, nil
+	}
+
 	switch msg := msg.(type) {
 	case tickMsg:
 		if m.paused {
@@ -128,34 +162,42 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, timerCmd()
 	case tea.KeyMsg:
+		if m.paused {
+			switch msg.String() {
+			case "enter":
+				i, ok := m.pauseMenuList.SelectedItem().(pauseMenuItem)
+				if ok {
+					choice := i.title
+					switch choice {
+					case "Resume (ESC or space)":
+						m.paused = false
+					case "Quit (CTRL+C or q)":
+						return m, tea.Quit
+					}
+				}
+			}
+
+			var cmd tea.Cmd
+			m.pauseMenuList, cmd = m.pauseMenuList.Update(msg)
+			return m, cmd
+		}
+
 		switch msg.String() {
-
-		// These keys should exit the program.
-		case "ctrl+c", "q":
-			return m, tea.Quit
-
-		case "esc":
-			m.paused = !m.paused
-		case " ":
-			m.paused = !m.paused
 		case "up", "k":
 			// If the snake is moving down, ignore the up key.
 			if m.previousDirection.y != 1 {
 				m.snakeDirection = point{x: 0, y: -1}
 			}
-
 		case "down", "j":
 			// If the snake is moving up, ignore the down key.
 			if m.previousDirection.y != -1 {
 				m.snakeDirection = point{x: 0, y: 1}
 			}
-
 		case "right", "l":
 			// If the snake is moving left, ignore the right key.
 			if m.previousDirection.x != -1 {
 				m.snakeDirection = point{x: 1, y: 0}
 			}
-
 		case "left", "h":
 			// If the snake is moving right, ignore the left key.
 			if m.previousDirection.x != 1 {
@@ -176,49 +218,6 @@ func snakeContains(snake []point, p point) bool {
 		}
 	}
 	return false
-}
-
-func (m model) View() string {
-
-	s := headerStyle.Width(m.width * 2).Render(fmt.Sprintf("Snake length: %d", len(m.snake)))
-	if m.paused {
-		s += " (paused)"
-	}
-	s += "\n"
-	for y := 0; y < m.height; y++ {
-		for x := 0; x < m.width; x++ {
-			currentGrassStyle := grassBackgroundStyle
-			if (x+y)%2 == 0 {
-				currentGrassStyle = grassBackgroudStyle2
-			}
-
-			renderExtraSpace := true
-
-			if x == 0 || x == m.width-1 || y == 0 || y == m.height-1 {
-				s += borderStyle.Inherit(currentGrassStyle).Render("##")
-
-				renderExtraSpace = false
-			} else if (snakeContains(m.snake, point{x: x, y: y})) {
-
-				s += snakeStyle.Inherit(currentGrassStyle).Render("O")
-			} else if x == m.apple.x && y == m.apple.y {
-				s += appleStyle.Inherit(currentGrassStyle).Render("A")
-			} else {
-				s += currentGrassStyle.Render(" ")
-			}
-
-			if renderExtraSpace {
-				// extra space for extra horizontal spacing
-				s += currentGrassStyle.Render(" ")
-			}
-
-			if x == m.width-1 {
-				s += "\n"
-			}
-		}
-	}
-
-	return s
 }
 
 func main() {
