@@ -20,4 +20,4 @@ Then make sure the `%GOPATH%/bin` path is part of your PATH environmental variab
 
 ## Demo
 
-![Snake Game Demo](/snake-demo-gif)
+![Snake Game Demo](/snake-demo.gif)
