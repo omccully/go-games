@@ -248,11 +248,3 @@ func snakeContains(snake []Point, p Point) bool {
 	}
 	return false
 }
-
-func main() {
-	p := tea.NewProgram(initialModel())
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("error: %v", err)
-		os.Exit(1)
-	}
-}
