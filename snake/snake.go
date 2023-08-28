@@ -82,6 +82,7 @@ func initialModel() model {
 	gd := getGameData()
 	theModel.highScore = gd.HighScore
 	if gd.Snake != nil && len(gd.Snake) > 0 {
+		// resume game from saved state in file
 		theModel.snake = gd.Snake
 		theModel.apple = gd.Apple
 		theModel.previousDirection = gd.SnakeDirection

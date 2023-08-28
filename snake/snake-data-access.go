@@ -30,7 +30,6 @@ func getGameDataFilePath() (string, error) {
 }
 
 func getGameData() gameData {
-	// read gameData from JSON file in temp directory
 	filePath, err := getGameDataFilePath()
 	if err != nil {
 		return gameData{}
@@ -60,7 +59,6 @@ func createDataFolderIfDoesntExist() error {
 func saveGameData(gd gameData) error {
 	createDataFolderIfDoesntExist()
 
-	// write gameData to JSON file in user directory
 	filePath, err := getGameDataFilePath()
 	if err != nil {
 		return err

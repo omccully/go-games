@@ -68,7 +68,6 @@ func (m model) View() string {
 
 				renderExtraSpace = false
 			} else if (snakeContains(m.snake, Point{X: x, Y: y})) {
-
 				r.WriteString(snakeStyle.Inherit(currentGrassStyle).Render("O"))
 			} else if x == m.apple.X && y == m.apple.Y {
 				r.WriteString(appleStyle.Inherit(currentGrassStyle).Render("A"))

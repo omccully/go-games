@@ -1,6 +1,6 @@
 # Terminal Snake Game
 
-Snake game that runs in your terminal. Colorful and stylish. Written in Go.
+Snake game that runs in your terminal. Colorful and stylish. Written in Go. Saves high score and allows you to pause, exit, and resume the game seamlessly. 
 
 ## Download and install from source
 
@@ -22,4 +22,10 @@ The objective of the game is to control the snake (the "O"s) to eat the apples (
 
 ## Demo
 
-![Snake Game Demo](/snake-demo.gif)
+You fail when you run into a wall or yourself: 
+
+![Snake Game Failure Demo](/snake/demo/failure.gif)
+
+You can seamlessly exit and resume the game whenever you want:
+
+![Snake Game Resume Demo](/snake/demo/resume.gif)
