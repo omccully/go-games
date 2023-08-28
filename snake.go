@@ -14,8 +14,8 @@ import (
 const defaultWidth int = 30
 const defaultHeight int = 20
 
-type point struct {
-	x, y int
+type Point struct {
+	X, Y int
 }
 
 type tickMsg time.Time
@@ -23,12 +23,13 @@ type tickMsg time.Time
 type model struct {
 	width             int
 	height            int
+	highScore         int
 	paused            bool
 	pauseMenuList     list.Model
-	apple             point
-	snake             []point
-	previousDirection point
-	snakeDirection    point
+	apple             Point
+	snake             []Point
+	previousDirection Point
+	snakeDirection    Point
 }
 
 type pauseMenuItem struct {
@@ -72,11 +73,21 @@ func initialModel() model {
 		pauseMenuList:     pauseMenuList,
 		width:             width,
 		height:            height,
-		snake:             []point{{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 5, y: 2}},
-		previousDirection: point{x: 1, y: 0},
-		snakeDirection:    point{x: 1, y: 0},
+		snake:             []Point{{X: 2, Y: 2}, {X: 3, Y: 2}, {X: 4, Y: 2}, {X: 5, Y: 2}},
+		previousDirection: Point{X: 1, Y: 0},
+		snakeDirection:    Point{X: 1, Y: 0},
 	}
 	theModel.apple = theModel.getNextAppleLocation()
+
+	gd := getGameData()
+	theModel.highScore = gd.HighScore
+	if gd.Snake != nil && len(gd.Snake) > 0 {
+		theModel.snake = gd.Snake
+		theModel.apple = gd.Apple
+		theModel.previousDirection = gd.SnakeDirection
+		theModel.snakeDirection = gd.SnakeDirection
+	}
+
 	return theModel
 }
 
@@ -90,9 +101,9 @@ func (m model) Init() tea.Cmd {
 	return timerCmd()
 }
 
-func (m model) getNextAppleLocation() point {
+func (m model) getNextAppleLocation() Point {
 	for {
-		p := point{x: rand.Intn(m.width-2) + 1, y: rand.Intn(m.height-2) + 1}
+		p := Point{X: rand.Intn(m.width-2) + 1, Y: rand.Intn(m.height-2) + 1}
 		if !snakeContains(m.snake, p) {
 			return p
 		}
@@ -123,8 +134,24 @@ func isForceQuitMsg(msg tea.Msg) bool {
 	return false
 }
 
+func (m model) saveGameState(allowResume bool) {
+	highScore := m.highScore
+	if len(m.snake) > highScore {
+		highScore = len(m.snake)
+	}
+
+	gd := gameData{HighScore: highScore}
+	if allowResume {
+		gd.Snake = m.snake
+		gd.Apple = m.apple
+		gd.SnakeDirection = m.previousDirection
+	}
+	saveGameData(gd)
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if isForceQuitMsg(msg) {
+		m.saveGameState(true)
 		return m, tea.Quit
 	}
 
@@ -142,16 +169,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.previousDirection = m.snakeDirection
 
 		latest := m.snake[len(m.snake)-1]
-		newSnakeHead := point{x: latest.x + m.snakeDirection.x, y: latest.y + m.snakeDirection.y}
+		newSnakeHead := Point{X: latest.X + m.snakeDirection.X, Y: latest.Y + m.snakeDirection.Y}
 
 		// check if snake hit wall or itself
-		if newSnakeHead.x == 0 || newSnakeHead.x == m.width-1 || newSnakeHead.y == 0 || newSnakeHead.y == m.height-1 || snakeContains(m.snake, newSnakeHead) {
+		if newSnakeHead.X == 0 || newSnakeHead.X == m.width-1 || newSnakeHead.Y == 0 || newSnakeHead.Y == m.height-1 || snakeContains(m.snake, newSnakeHead) {
+			m.saveGameState(false)
 			return m, tea.Quit
 		}
 
 		m.snake = append(m.snake, newSnakeHead)
 
-		if newSnakeHead.x == m.apple.x && newSnakeHead.y == m.apple.y {
+		if newSnakeHead.X == m.apple.X && newSnakeHead.Y == m.apple.Y {
 			// snake ate apple. let snake grow
 			// generate new apple
 			m.apple = m.getNextAppleLocation()
@@ -172,6 +200,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					case "Resume (ESC or space)":
 						m.paused = false
 					case "Quit (CTRL+C or q)":
+						m.saveGameState(true)
 						return m, tea.Quit
 					}
 				}
@@ -185,23 +214,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "up", "k":
 			// If the snake is moving down, ignore the up key.
-			if m.previousDirection.y != 1 {
-				m.snakeDirection = point{x: 0, y: -1}
+			if m.previousDirection.Y != 1 {
+				m.snakeDirection = Point{X: 0, Y: -1}
 			}
 		case "down", "j":
 			// If the snake is moving up, ignore the down key.
-			if m.previousDirection.y != -1 {
-				m.snakeDirection = point{x: 0, y: 1}
+			if m.previousDirection.Y != -1 {
+				m.snakeDirection = Point{X: 0, Y: 1}
 			}
 		case "right", "l":
 			// If the snake is moving left, ignore the right key.
-			if m.previousDirection.x != -1 {
-				m.snakeDirection = point{x: 1, y: 0}
+			if m.previousDirection.X != -1 {
+				m.snakeDirection = Point{X: 1, Y: 0}
 			}
 		case "left", "h":
 			// If the snake is moving right, ignore the left key.
-			if m.previousDirection.x != 1 {
-				m.snakeDirection = point{x: -1, y: 0}
+			if m.previousDirection.X != 1 {
+				m.snakeDirection = Point{X: -1, Y: 0}
 			}
 		}
 	}
@@ -211,9 +240,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func snakeContains(snake []point, p point) bool {
+func snakeContains(snake []Point, p Point) bool {
 	for _, s := range snake {
-		if s.x == p.x && s.y == p.y {
+		if s.X == p.X && s.Y == p.Y {
 			return true
 		}
 	}

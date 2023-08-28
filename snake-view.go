@@ -12,6 +12,12 @@ var headerStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("#FAFAFA")).
 	Background(lipgloss.Color("#7D56F4"))
 
+var snakeLengthHeaderStyle = lipgloss.NewStyle().
+	Align(lipgloss.Left)
+
+var highScoreHeaderStyle = lipgloss.NewStyle().
+	Align(lipgloss.Right)
+
 var grassBackgroundStyle = lipgloss.NewStyle().
 	Background(lipgloss.Color("#aad751"))
 
@@ -41,7 +47,11 @@ func (m model) View() string {
 
 	r := strings.Builder{}
 
-	r.WriteString(headerStyle.Width(m.width * 2).Render(fmt.Sprintf("Snake length: %d", len(m.snake))))
+	// m.width is actually half of the width in number of characters
+	r.WriteString(headerStyle.Render(
+		snakeLengthHeaderStyle.Width(m.width).Render(fmt.Sprintf("Snake length: %d", len(m.snake))) +
+			highScoreHeaderStyle.Width(m.width).Render(fmt.Sprintf("High score: %d", m.highScore)),
+	))
 	r.WriteRune('\n')
 
 	for y := 0; y < m.height; y++ {
@@ -57,10 +67,10 @@ func (m model) View() string {
 				r.WriteString(borderStyle.Inherit(currentGrassStyle).Render("##"))
 
 				renderExtraSpace = false
-			} else if (snakeContains(m.snake, point{x: x, y: y})) {
+			} else if (snakeContains(m.snake, Point{X: x, Y: y})) {
 
 				r.WriteString(snakeStyle.Inherit(currentGrassStyle).Render("O"))
-			} else if x == m.apple.x && y == m.apple.y {
+			} else if x == m.apple.X && y == m.apple.Y {
 				r.WriteString(appleStyle.Inherit(currentGrassStyle).Render("A"))
 			} else {
 				r.WriteString(currentGrassStyle.Render(" "))
