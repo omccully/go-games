@@ -4,7 +4,17 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
 )
+
+var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
+	lipgloss.NewStyle().Foreground(lipgloss.Color("#0a7d08")),
+	lipgloss.NewStyle().Foreground(lipgloss.Color("#6f0707")),
+	lipgloss.NewStyle().Foreground(lipgloss.Color("#f6fa41")),
+	lipgloss.NewStyle().Foreground(lipgloss.Color("#317fdb")),
+	lipgloss.NewStyle().Foreground(lipgloss.Color("#e68226")),
+}
 
 func timeElapsed(ticksElapsed float64, bpmm float64, resolution float64) float64 {
 	return 1000 * (ticksElapsed / resolution) * (60000 / bpmm)
@@ -73,28 +83,49 @@ func main() {
 	fmt.Println("Note count:", noteCount)
 	songLength := realNotes[len(realNotes)-1].TimeStamp
 	fmt.Println("Song length:", songLength)
+	fmt.Println("Starting at", time.Now().String())
 
-	currentTime := 0
-	lineTime := 50 // each line is 50 ms
+	startDateTime := time.Now()
+	currentTimeMs := 0
+	lineTime := 100 // each line is 50 ms
 	for len(realNotes) > 0 {
 		note := realNotes[0]
 		var noteColors [5]bool = [5]bool{false, false, false, false, false}
-		for note.TimeStamp < currentTime {
+		for note.TimeStamp < currentTimeMs {
 			noteColors[note.NoteType] = true
 			realNotes = realNotes[1:]
-			note = realNotes[0]
+			if len(realNotes) > 0 {
+				note = realNotes[0]
+			} else {
+				break
+			}
 		}
 
+		fmt.Print(" ")
 		for i := 0; i < 5; i++ {
 			if noteColors[i] {
-				fmt.Print("X")
+				fmt.Print(noteStyles[i].Render("O"))
 			} else {
 				fmt.Print(" ")
 			}
 		}
 		fmt.Println()
 
-		currentTime += lineTime
-		time.Sleep(time.Duration(lineTime) * time.Millisecond)
+		currentDateTime := time.Now()
+		elapsedTimeSinceStart := currentDateTime.Sub(startDateTime)
+		sleepTime := time.Duration(currentTimeMs+lineTime)*time.Millisecond - elapsedTimeSinceStart
+
+		if sleepTime > 0 {
+			time.Sleep(sleepTime)
+			//rintln(sleepTime.String())
+		} else {
+			//println("no sleep")
+		}
+
+		currentTimeMs += lineTime
 	}
+
+	fmt.Println("Starting at", startDateTime.String())
+	fmt.Println("Finished song at", time.Now().String())
+	fmt.Println("Finished in ", time.Since(startDateTime).String())
 }
