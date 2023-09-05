@@ -5,127 +5,155 @@ import (
 	"os"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
-var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#0a7d08")),
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#6f0707")),
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#f6fa41")),
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#317fdb")),
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#e68226")),
+type model struct {
+	chart         *Chart
+	realTimeNotes []Note    // notes that have real timestamps (in milliseconds)
+	startTime     time.Time // datetime that the song started
+	currentTimeMs int       // current time position within the chart
+
+	fretBoardHeight int
+	lineTime        time.Duration
+
+	nextNoteIndex int // the index of the next note that should not be displayed yet
+	viewModel     viewModel
 }
 
-func timeElapsed(ticksElapsed float64, bpmm float64, resolution float64) float64 {
-	return 1000 * (ticksElapsed / resolution) * (60000 / bpmm)
+type NoteColors [5]bool
+
+type NoteLine struct {
+	NoteColors [5]bool
+	// debug info
+	DisplayTimeMs int
 }
 
-func getNodesWithRealTimestamps(chart *Chart) []Note {
-	var result []Note = make([]Note, 0)
-
-	expert := chart.Tracks["ExpertSingle"]
-	syncTrack := chart.SyncTrack
-	currentTime := float64(0)
-	currentTick := 0
-	currentBpm := float64(120000)
-	for len(expert) > 0 {
-		note := expert[0]
-		expert = expert[1:]
-
-		for len(syncTrack) > 0 {
-			sync := syncTrack[0]
-
-			if sync.TimeStamp > note.TimeStamp {
-				// sync event happens after note
-				break
-			}
-			if sync.Type != "B" {
-				// ignoring TS events for now
-				syncTrack = syncTrack[1:]
-				continue
-			}
-			ticksElapsed := sync.TimeStamp - currentTick
-
-			// advance currentTime and currentTick
-			currentTime += timeElapsed(float64(ticksElapsed), currentBpm, float64(chart.SongMetadata.Resolution))
-			currentTick = sync.TimeStamp
-			currentBpm = float64(sync.Value)
-
-			syncTrack = syncTrack[1:]
-		}
-
-		ticksElapsed := note.TimeStamp - currentTick
-		if ticksElapsed > 0 {
-			currentTime += timeElapsed(float64(ticksElapsed), currentBpm, float64(chart.SongMetadata.Resolution))
-			currentTick = note.TimeStamp
-		}
-
-		heldNoteTime := int(timeElapsed(float64(note.ExtraData), currentBpm, float64(chart.SongMetadata.Resolution)))
-		result = append(result, Note{int(currentTime), note.NoteType, heldNoteTime})
-	}
-	return result
+type viewModel struct {
+	NoteLine []NoteLine
 }
 
-func main() {
+type tickMsg time.Time
+
+func (m model) getStrumLineIndex() int {
+	return m.fretBoardHeight - 1
+}
+
+func initialModel() model {
 	file, err := os.Open("sample-songs/cult-of-personality.chart")
 	if err != nil {
 		panic(err)
 	}
 
-	defer file.Close()
-
 	chart, err := ParseF(file)
+	file.Close()
 	if err != nil {
 		panic(err)
 	}
-	realNotes := getNodesWithRealTimestamps(chart)
-	noteCount := len(realNotes)
-	fmt.Println("Note count:", noteCount)
-	songLength := realNotes[len(realNotes)-1].TimeStamp
-	fmt.Println("Song length:", songLength)
-	fmt.Println("Starting at", time.Now().String())
 
-	startDateTime := time.Now()
-	currentTimeMs := 0
-	lineTime := 100 // each line is 50 ms
-	for len(realNotes) > 0 {
-		note := realNotes[0]
-		var noteColors [5]bool = [5]bool{false, false, false, false, false}
-		for note.TimeStamp < currentTimeMs {
-			noteColors[note.NoteType] = true
-			realNotes = realNotes[1:]
-			if len(realNotes) > 0 {
-				note = realNotes[0]
+	return createModelFromChart(chart)
+}
+
+func createModelFromChart(chart *Chart) model {
+	realNotes := getNotesWithRealTimestamps(chart)
+
+	startTime := time.Now()
+	lineTime := 40 * time.Millisecond
+	fretboardHeight := 35
+	return model{chart, realNotes, startTime, 0, fretboardHeight, lineTime, 0, viewModel{}}
+}
+
+func isForceQuitMsg(msg tea.Msg) bool {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return true
+		}
+	}
+	return false
+}
+
+func timerCmd(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func (m model) Init() tea.Cmd {
+	return timerCmd(m.lineTime)
+}
+
+func (m model) CreateCurrentNoteChart() viewModel {
+	var result []NoteLine
+	lineTimeMs := int(m.lineTime / time.Millisecond)
+
+	// each iteration of the loop displays notes after displayTimeMs
+	displayTimeMs := m.currentTimeMs - lineTimeMs
+
+	// the nextNoteIndex should not be printed
+	latestNotPrintedNoteIndex := m.nextNoteIndex - 1
+	for i := 0; i < m.fretBoardHeight; i++ {
+		var noteColors NoteColors = NoteColors{false, false, false, false, false}
+		for j := latestNotPrintedNoteIndex; j >= 0; j-- {
+			note := m.realTimeNotes[j]
+
+			if note.TimeStamp >= displayTimeMs {
+				noteColors[note.NoteType] = true
+				latestNotPrintedNoteIndex = j - 1
 			} else {
+				latestNotPrintedNoteIndex = j
 				break
 			}
 		}
 
-		fmt.Print(" ")
-		for i := 0; i < 5; i++ {
-			if noteColors[i] {
-				fmt.Print(noteStyles[i].Render("O"))
-			} else {
-				fmt.Print(" ")
-			}
-		}
-		fmt.Println()
+		result = append(result, NoteLine{noteColors, displayTimeMs})
 
-		currentDateTime := time.Now()
-		elapsedTimeSinceStart := currentDateTime.Sub(startDateTime)
-		sleepTime := time.Duration(currentTimeMs+lineTime)*time.Millisecond - elapsedTimeSinceStart
-
-		if sleepTime > 0 {
-			time.Sleep(sleepTime)
-			//rintln(sleepTime.String())
-		} else {
-			//println("no sleep")
-		}
-
-		currentTimeMs += lineTime
+		displayTimeMs -= lineTimeMs
 	}
 
-	fmt.Println("Starting at", startDateTime.String())
-	fmt.Println("Finished song at", time.Now().String())
-	fmt.Println("Finished in ", time.Since(startDateTime).String())
+	return viewModel{result}
+}
+
+// updates view model info based on model.currentTimeMs
+func (m model) UpdateViewModel() model {
+
+	for i := m.nextNoteIndex; i < len(m.realTimeNotes); i++ {
+		note := m.realTimeNotes[i]
+		if note.TimeStamp <= m.currentTimeMs {
+			m.nextNoteIndex = i + 1
+		} else {
+			break
+		}
+	}
+
+	m.viewModel = m.CreateCurrentNoteChart()
+
+	return m
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if isForceQuitMsg(msg) {
+		return m, tea.Quit
+	}
+	switch msg := msg.(type) {
+	case tickMsg:
+		m.currentTimeMs += int(m.lineTime / time.Millisecond)
+		currentDateTime := time.Time(tickMsg(msg))
+		elapsedTimeSinceStart := currentDateTime.Sub(m.startTime)
+		sleepTime := time.Duration(m.currentTimeMs)*time.Millisecond - elapsedTimeSinceStart
+
+		m = m.UpdateViewModel()
+
+		return m, timerCmd(sleepTime)
+	}
+	return m, nil
+}
+
+func main() {
+	p := tea.NewProgram(initialModel())
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("error: %v", err)
+		os.Exit(1)
+	}
 }

@@ -41,7 +41,7 @@ type Note struct {
 func (c *Chart) HandleChartElement(section string, element ChartElement) error {
 	switch section {
 	case "Song":
-		println("Song", element.LeftValue, element.RightValue)
+		//println("Song", element.LeftValue, element.RightValue)
 		switch element.LeftValue {
 		case "Name":
 			c.SongMetadata.Name = element.RightValue
@@ -174,4 +174,54 @@ func parseInternal(reader io.Reader, handler ChartElementHandler) error {
 
 	}
 	return nil
+}
+
+func timeElapsed(ticksElapsed float64, bpmm float64, resolution float64) float64 {
+	return 1000 * (ticksElapsed / resolution) * (60000 / bpmm)
+}
+
+func getNotesWithRealTimestamps(chart *Chart) []Note {
+	var result []Note = make([]Note, 0)
+
+	expert := chart.Tracks["ExpertSingle"]
+	syncTrack := chart.SyncTrack
+	currentTime := float64(0)
+	currentTick := 0
+	currentBpm := float64(120000)
+	for len(expert) > 0 {
+		note := expert[0]
+		expert = expert[1:]
+
+		for len(syncTrack) > 0 {
+			sync := syncTrack[0]
+
+			if sync.TimeStamp > note.TimeStamp {
+				// sync event happens after note
+				break
+			}
+			if sync.Type != "B" {
+				// ignoring TS events for now
+				syncTrack = syncTrack[1:]
+				continue
+			}
+			ticksElapsed := sync.TimeStamp - currentTick
+
+			// advance currentTime and currentTick
+			currentTime += timeElapsed(float64(ticksElapsed), currentBpm, float64(chart.SongMetadata.Resolution))
+			currentTick = sync.TimeStamp
+			currentBpm = float64(sync.Value)
+
+			syncTrack = syncTrack[1:]
+		}
+
+		ticksElapsed := note.TimeStamp - currentTick
+		if ticksElapsed > 0 {
+			currentTime += timeElapsed(float64(ticksElapsed), currentBpm, float64(chart.SongMetadata.Resolution))
+			currentTick = note.TimeStamp
+		}
+
+		heldNoteTime := int(timeElapsed(float64(note.ExtraData), currentBpm, float64(chart.SongMetadata.Resolution)))
+		result = append(result, Note{int(currentTime), note.NoteType, heldNoteTime})
+	}
+	return result
 }
