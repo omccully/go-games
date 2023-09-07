@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -40,7 +41,12 @@ func (m model) getStrumLineIndex() int {
 }
 
 func initialModel() model {
-	file, err := os.Open("sample-songs/cult-of-personality.chart")
+	if len(os.Args) != 2 {
+		panic("Usage: gorhythm <folder path containing notes.chart file>")
+	}
+	chartPath := os.Args[1]
+
+	file, err := os.Open(filepath.Join(chartPath, "notes.chart"))
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +64,7 @@ func createModelFromChart(chart *Chart) model {
 	realNotes := getNotesWithRealTimestamps(chart)
 
 	startTime := time.Now()
-	lineTime := 40 * time.Millisecond
+	lineTime := 30 * time.Millisecond
 	fretboardHeight := 35
 	return model{chart, realNotes, startTime, 0, fretboardHeight, lineTime, 0, viewModel{}}
 }
@@ -81,7 +87,7 @@ func timerCmd(d time.Duration) tea.Cmd {
 }
 
 func (m model) Init() tea.Cmd {
-	return timerCmd(m.lineTime)
+	return tea.Batch(tea.EnterAltScreen, timerCmd(m.lineTime))
 }
 
 func (m model) CreateCurrentNoteChart() viewModel {
@@ -146,6 +152,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.UpdateViewModel()
 
 		return m, timerCmd(sleepTime)
+
+	case tea.WindowSizeMsg:
+		m.fretBoardHeight = msg.Height - 3
 	}
 	return m, nil
 }
