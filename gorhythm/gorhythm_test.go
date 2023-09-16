@@ -35,7 +35,7 @@ func countNotesOfColor(vm viewModel, color int) int {
 func TestViewBeforeNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
-	model := createModelFromChart(chart)
+	model := createModelFromChart(chart, "ExpertSingle")
 	model.lineTime = 100 * time.Millisecond
 
 	vm := model.CreateCurrentNoteChart()
@@ -56,7 +56,7 @@ func TestViewBeforeNotes(t *testing.T) {
 func TestViewFirstNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
-	model := createModelFromChart(chart)
+	model := createModelFromChart(chart, "ExpertSingle")
 	model.lineTime = 100 * time.Millisecond
 	model.currentTimeMs = 12100
 

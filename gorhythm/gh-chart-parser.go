@@ -180,10 +180,10 @@ func timeElapsed(ticksElapsed float64, bpmm float64, resolution float64) float64
 	return 1000 * (ticksElapsed / resolution) * (60000 / bpmm)
 }
 
-func getNotesWithRealTimestamps(chart *Chart) []Note {
+func getNotesWithRealTimestamps(chart *Chart, trackName string) []Note {
 	var result []Note = make([]Note, 0)
 
-	expert := chart.Tracks["ExpertSingle"]
+	expert := chart.Tracks[trackName]
 	syncTrack := chart.SyncTrack
 	currentTime := float64(0)
 	currentTick := 0
