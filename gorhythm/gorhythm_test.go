@@ -105,7 +105,7 @@ func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 
 	model.playStats.noteStreak = 10
 
-	model = model.PlayNote(1)
+	model = model.PlayNote(1, strumLineTime)
 
 	// there's no notes anywhere near this time, so note streak gets reset
 	if model.playStats.noteStreak != 0 {
@@ -126,16 +126,89 @@ func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 	strumLineIndex := model.getStrumLineIndex()
 	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
 	model.playStats.noteStreak = 10
-	hitModel := model.PlayNote(1)
+	hitModel := model.PlayNote(0, strumLineTime)
 
 	// correct note hit
 	if hitModel.playStats.noteStreak != 11 {
 		t.Error("Expected note streak to be 11, got", model.playStats.noteStreak)
 	}
 
-	missModel := model.PlayNote(2)
+	missModel := model.PlayNote(2, strumLineTime)
 	// wrong note
 	if missModel.playStats.noteStreak != 0 {
 		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	}
+}
+
+func TestHitNote_ThenDidntPlayNextNote_ResetsStreakWhenNoteIsOutsideOfWindow(t *testing.T) {
+	chart := openCultOfPersonalityChart(t)
+	model := createModelFromChart(chart, "MediumSingle")
+	model.settings.lineTime = 30 * time.Millisecond
+	model.settings.fretBoardHeight = 30
+
+	// I want these tests to be based around the strum line
+	// rather than current time
+	strumLineTime := 10050
+	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
+	strumLineIndex := model.getStrumLineIndex()
+	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model.playStats.noteStreak = 10
+	model = model.PlayNote(0, strumLineTime)
+
+	// correct note hit
+	if model.playStats.noteStreak != 11 {
+		t.Error("Expected note streak to be 11, got", model.playStats.noteStreak)
+	}
+
+	// time of the next note (yellow)
+	model = model.ProcessNoNotePlayed(10260)
+	if model.playStats.noteStreak != 11 {
+		t.Error("Expected note streak to still be 11, got", model.playStats.noteStreak)
+	}
+
+	model = model.ProcessNoNotePlayed(10470)
+	if model.playStats.noteStreak != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	}
+}
+
+func TestDoubleStrumSameNote_ResetsNoteStreak(t *testing.T) {
+	chart := openCultOfPersonalityChart(t)
+	model := createModelFromChart(chart, "MediumSingle")
+	model.settings.lineTime = 30 * time.Millisecond
+	model.settings.fretBoardHeight = 30
+
+	// I want these tests to be based around the strum line
+	// rather than current time
+	strumLineTime := 10050
+	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
+	strumLineIndex := model.getStrumLineIndex()
+	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model.playStats.noteStreak = 10
+	model = model.PlayNote(0, strumLineTime)
+	model = model.PlayNote(0, strumLineTime+10)
+
+	if model.playStats.noteStreak != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	}
+}
+
+func TestStrumWrongNote_ThenCorrectNote_AllowsPlayingCorrectNote(t *testing.T) {
+	chart := openCultOfPersonalityChart(t)
+	model := createModelFromChart(chart, "MediumSingle")
+	model.settings.lineTime = 30 * time.Millisecond
+	model.settings.fretBoardHeight = 30
+
+	// I want these tests to be based around the strum line
+	// rather than current time
+	strumLineTime := 10050
+	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
+	strumLineIndex := model.getStrumLineIndex()
+	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model.playStats.noteStreak = 10
+	model = model.PlayNote(3, strumLineTime)
+	model = model.PlayNote(0, strumLineTime+10)
+	if model.playStats.noteStreak != 1 {
+		t.Error("Expected note streak to be 1, got", model.playStats.noteStreak)
 	}
 }

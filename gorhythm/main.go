@@ -27,9 +27,9 @@ type model struct {
 }
 
 type playStats struct {
-	lastHitNoteIndex int
-	notesHit         int
-	noteStreak       int
+	lastPlayedNoteIndex int
+	notesHit            int
+	noteStreak          int
 }
 
 type settings struct {
@@ -128,7 +128,7 @@ func createModelFromChart(chart *Chart, trackName string) model {
 	fretboardHeight := 35
 	return model{chart, playableNotes, startTime, 0,
 		settings{fretboardHeight, lineTime, strumTolerance},
-		playStats{},
+		playStats{-1, 0, 0},
 		0, viewModel{}, songSounds{}}
 }
 
@@ -203,13 +203,62 @@ func (m model) UpdateViewModel() model {
 	return m
 }
 
-func (m model) PlayNote(colorIndex int) model {
-	// minTime :=
-	for i := m.playStats.lastHitNoteIndex; i < len(m.realTimeNotes); i++ {
+// should be periodically called to process missed notes
+func (m model) ProcessNoNotePlayed(strumTimeMs int) model {
+	strumToleranceMs := int(m.settings.strumTolerance / time.Millisecond)
+	minTime := strumTimeMs - strumToleranceMs
+	maxTime := strumTimeMs + strumToleranceMs
+	for i := m.playStats.lastPlayedNoteIndex + 1; i < len(m.realTimeNotes); i++ {
+		note := m.realTimeNotes[i]
+		if note.TimeStamp > maxTime {
+			break
+		}
+
+		// only update lastPlayedNoteIndex if it's before the minTime strum tolerance
+		if note.TimeStamp < minTime {
+			// missed a previous note
+			m.playStats.lastPlayedNoteIndex = i
+			m.playStats.noteStreak = 0
+			continue
+		}
 
 	}
+	return m
+}
 
-	m.playStats.noteStreak = 0
+// should be called when a note is played (ex: keyboard button pressed)
+func (m model) PlayNote(colorIndex int, strumTimeMs int) model {
+	strumToleranceMs := int(m.settings.strumTolerance / time.Millisecond)
+	minTime := strumTimeMs - strumToleranceMs
+	maxTime := strumTimeMs + strumToleranceMs
+	for i := m.playStats.lastPlayedNoteIndex + 1; i < len(m.realTimeNotes); i++ {
+		note := m.realTimeNotes[i]
+
+		if note.TimeStamp > maxTime {
+			// overstrum. no notes around
+			m.playStats.noteStreak = 0
+			break
+		}
+
+		if note.TimeStamp < minTime {
+			// missed a previous note
+			m.playStats.lastPlayedNoteIndex = i
+			m.playStats.noteStreak = 0
+			continue
+		}
+
+		if note.NoteType == colorIndex {
+			m.playStats.notesHit++
+			m.playStats.noteStreak++
+			m.playStats.lastPlayedNoteIndex = i
+			break
+		} else {
+			// played wrong note
+			m.playStats.noteStreak = 0
+			break
+		}
+	}
+
 	return m
 }
 
