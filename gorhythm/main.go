@@ -124,7 +124,7 @@ func createModelFromChart(chart *Chart, trackName string) model {
 
 	startTime := time.Time{}
 	lineTime := 30 * time.Millisecond
-	strumTolerance := 50 * time.Millisecond
+	strumTolerance := 80 * time.Millisecond
 	fretboardHeight := 35
 	return model{chart, playableNotes, startTime, 0,
 		settings{fretboardHeight, lineTime, strumTolerance},
@@ -278,10 +278,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.UpdateViewModel()
 
 		if m.viewModel.NoteLine[m.getStrumLineIndex()-1].DisplayTimeMs == 0 {
-			//speaker.Play(m.songSounds.song)
+			speaker.Play(m.songSounds.song)
 			speaker.Play(m.songSounds.guitar)
 			if m.songSounds.bass != nil {
-				//speaker.Play(m.songSounds.bass)
+				speaker.Play(m.songSounds.bass)
 			}
 		}
 
