@@ -7,27 +7,35 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/faiface/beep"
 	"github.com/faiface/beep/speaker"
-	"github.com/faiface/beep/vorbis"
 )
 
 type model struct {
 	chart         *Chart
-	realTimeNotes []Note    // notes that have real timestamps (in milliseconds)
-	startTime     time.Time // datetime that the song started
-	currentTimeMs int       // current time position within the chart
+	realTimeNotes []playableNote // notes that have real timestamps (in milliseconds)
 
-	fretBoardHeight int
-	lineTime        time.Duration
+	startTime     time.Time // datetime that the song started
+	currentTimeMs int       // current time position within the chart for notes that are now appearing
+
+	settings  settings
+	playStats playStats
 
 	nextNoteIndex int // the index of the next note that should not be displayed yet
 	viewModel     viewModel
 
-	guitar     beep.StreamSeeker
-	song       beep.StreamSeeker
-	bass       beep.StreamSeeker
-	songFormat beep.Format
+	songSounds songSounds
+}
+
+type playStats struct {
+	lastHitNoteIndex int
+	notesHit         int
+	noteStreak       int
+}
+
+type settings struct {
+	fretBoardHeight int
+	lineTime        time.Duration
+	strumTolerance  time.Duration
 }
 
 type NoteColors [5]bool
@@ -45,7 +53,7 @@ type viewModel struct {
 type tickMsg time.Time
 
 func (m model) getStrumLineIndex() int {
-	return m.fretBoardHeight - 1
+	return m.settings.fretBoardHeight - 2
 }
 
 func initialModel() model {
@@ -79,50 +87,49 @@ func initialModel() model {
 	}
 	bassStreamer, bassFormat, err := openAudioFile(filepath.Join(chartPath, "rhythm.ogg"))
 	if err != nil {
-		panic(err)
+		//panic(err)
 	}
 
 	model := createModelFromChart(chart, track)
-	model.song = songStreamer
-	model.guitar = guitarStreamer
-	model.bass = bassStreamer
+	model.songSounds.song = songStreamer
+	model.songSounds.guitar = guitarStreamer
+	model.songSounds.bass = bassStreamer
 
 	if guitarFormat.SampleRate != songFormat.SampleRate {
 		panic("guitar and song sample rates do not match")
 	}
-	if bassFormat.SampleRate != songFormat.SampleRate {
+	if bassStreamer != nil && bassFormat.SampleRate != songFormat.SampleRate {
 		panic("bass and song sample rates do not match")
 	}
 
-	model.songFormat = songFormat
+	model.songSounds.songFormat = songFormat
+
+	// set startTime just before returning, so loading times for files don't affect timing
+	model.startTime = time.Now()
 
 	return model
 }
 
-func openAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, beep.Format{}, err
-	}
-	streamer, format, err := vorbis.Decode(file)
-	if err != nil {
-		return nil, beep.Format{}, err
-	}
-
-	buffer := beep.NewBuffer(format)
-	buffer.Append(streamer)
-	streamer.Close()
-	bufferedStreamer := buffer.Streamer(0, buffer.Len())
-	return bufferedStreamer, format, nil
+type playableNote struct {
+	played bool
+	Note
 }
 
 func createModelFromChart(chart *Chart, trackName string) model {
 	realNotes := getNotesWithRealTimestamps(chart, trackName)
+	playableNotes := make([]playableNote, len(realNotes))
+	for i, note := range realNotes {
+		playableNotes[i] = playableNote{false, note}
+	}
 
-	startTime := time.Now()
+	startTime := time.Time{}
 	lineTime := 30 * time.Millisecond
+	strumTolerance := 50 * time.Millisecond
 	fretboardHeight := 35
-	return model{chart, realNotes, startTime, 0, fretboardHeight, lineTime, 0, viewModel{}, nil, nil, nil, beep.Format{}}
+	return model{chart, playableNotes, startTime, 0,
+		settings{fretboardHeight, lineTime, strumTolerance},
+		playStats{},
+		0, viewModel{}, songSounds{}}
 }
 
 func isForceQuitMsg(msg tea.Msg) bool {
@@ -143,20 +150,21 @@ func timerCmd(d time.Duration) tea.Cmd {
 }
 
 func (m model) Init() tea.Cmd {
-	speaker.Init(m.songFormat.SampleRate, m.songFormat.SampleRate.N(time.Second/10))
-	return tea.Batch(tea.EnterAltScreen, timerCmd(m.lineTime))
+	speaker.Init(m.songSounds.songFormat.SampleRate, m.songSounds.songFormat.SampleRate.N(time.Second/10))
+	return tea.Batch(tea.EnterAltScreen, timerCmd(m.settings.lineTime))
 }
 
+// returns the notes that should currently be on the screen
 func (m model) CreateCurrentNoteChart() viewModel {
 	var result []NoteLine
-	lineTimeMs := int(m.lineTime / time.Millisecond)
+	lineTimeMs := int(m.settings.lineTime / time.Millisecond)
 
 	// each iteration of the loop displays notes after displayTimeMs
 	displayTimeMs := m.currentTimeMs - lineTimeMs
 
 	// the nextNoteIndex should not be printed
 	latestNotPrintedNoteIndex := m.nextNoteIndex - 1
-	for i := 0; i < m.fretBoardHeight; i++ {
+	for i := 0; i < m.settings.fretBoardHeight; i++ {
 		var noteColors NoteColors = NoteColors{false, false, false, false, false}
 		for j := latestNotPrintedNoteIndex; j >= 0; j-- {
 			note := m.realTimeNotes[j]
@@ -195,27 +203,24 @@ func (m model) UpdateViewModel() model {
 	return m
 }
 
+func (m model) PlayNote(colorIndex int) model {
+	// minTime :=
+	for i := m.playStats.lastHitNoteIndex; i < len(m.realTimeNotes); i++ {
+
+	}
+
+	m.playStats.noteStreak = 0
+	return m
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if isForceQuitMsg(msg) {
-		guitarCLoser := m.guitar.(beep.StreamSeekCloser)
-		if guitarCLoser != nil {
-			guitarCLoser.Close()
-		}
-
-		songCLoser := m.song.(beep.StreamSeekCloser)
-		if songCLoser != nil {
-			songCLoser.Close()
-		}
-
-		bassCloser := m.bass.(beep.StreamSeekCloser)
-		if bassCloser != nil {
-			bassCloser.Close()
-		}
+		closeSoundStreams(m.songSounds)
 		return m, tea.Quit
 	}
 	switch msg := msg.(type) {
 	case tickMsg:
-		m.currentTimeMs += int(m.lineTime / time.Millisecond)
+		m.currentTimeMs += int(m.settings.lineTime / time.Millisecond)
 		currentDateTime := time.Time(tickMsg(msg))
 		elapsedTimeSinceStart := currentDateTime.Sub(m.startTime)
 		sleepTime := time.Duration(m.currentTimeMs)*time.Millisecond - elapsedTimeSinceStart
@@ -223,15 +228,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.UpdateViewModel()
 
 		if m.viewModel.NoteLine[m.getStrumLineIndex()-1].DisplayTimeMs == 0 {
-			speaker.Play(m.song)
-			speaker.Play(m.guitar)
-			speaker.Play(m.bass)
+			//speaker.Play(m.songSounds.song)
+			speaker.Play(m.songSounds.guitar)
+			if m.songSounds.bass != nil {
+				//speaker.Play(m.songSounds.bass)
+			}
 		}
 
 		return m, timerCmd(sleepTime)
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "1":
 
+		case "2":
+		case "3":
+		case "4":
+		case "5":
+		}
 	case tea.WindowSizeMsg:
-		m.fretBoardHeight = msg.Height - 3
+		m.settings.fretBoardHeight = msg.Height - 3
 	}
 	return m, nil
 }
