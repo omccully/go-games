@@ -274,6 +274,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		elapsedTimeSinceStart := currentDateTime.Sub(m.startTime)
 		sleepTime := time.Duration(m.currentTimeMs)*time.Millisecond - elapsedTimeSinceStart
 
+		m = m.ProcessNoNotePlayed(m.currentStrumTimeMs())
 		m = m.UpdateViewModel()
 
 		if m.viewModel.NoteLine[m.getStrumLineIndex()-1].DisplayTimeMs == 0 {
@@ -288,16 +289,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "1":
-
+			m = m.playNoteNow(0)
 		case "2":
+			m = m.playNoteNow(1)
 		case "3":
+			m = m.playNoteNow(2)
 		case "4":
+			m = m.playNoteNow(3)
 		case "5":
+			m = m.playNoteNow(4)
 		}
 	case tea.WindowSizeMsg:
 		m.settings.fretBoardHeight = msg.Height - 3
 	}
 	return m, nil
+}
+
+func (m model) playNoteNow(noteIndex int) model {
+	return m.PlayNote(noteIndex, m.currentStrumTimeMs())
+}
+
+func (m model) currentStrumTimeMs() int {
+	lineTimeMs := int(m.settings.lineTime / time.Millisecond)
+	strumLineIndex := m.getStrumLineIndex()
+	currentDateTime := time.Now()
+	elapsedTimeSinceStart := currentDateTime.Sub(m.startTime)
+	strumTimeMs := int(elapsedTimeSinceStart/time.Millisecond) - (lineTimeMs * strumLineIndex)
+	return strumTimeMs
 }
 
 func main() {
