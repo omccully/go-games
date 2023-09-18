@@ -10,8 +10,13 @@ import (
 	"github.com/faiface/beep/speaker"
 )
 
+const (
+	litDurationMs = 150
+)
+
 type model struct {
 	chart         *Chart
+	chartInfo     chartInfo
 	realTimeNotes []playableNote // notes that have real timestamps (in milliseconds)
 
 	startTime     time.Time // datetime that the song started
@@ -24,6 +29,11 @@ type model struct {
 	viewModel     viewModel
 
 	songSounds songSounds
+}
+
+type chartInfo struct {
+	folderName string
+	track      string // difficulty
 }
 
 type playStats struct {
@@ -47,13 +57,20 @@ type NoteLine struct {
 }
 
 type viewModel struct {
-	NoteLine []NoteLine
+	NoteLine   []NoteLine
+	noteStates [5]currentNoteState
+}
+
+type currentNoteState struct {
+	playedCorrectly bool
+	overHit         bool
+	lastPlayedMs    int
 }
 
 type tickMsg time.Time
 
 func (m model) getStrumLineIndex() int {
-	return m.settings.fretBoardHeight - 2
+	return m.settings.fretBoardHeight - 5
 }
 
 func initialModel() model {
@@ -91,6 +108,8 @@ func initialModel() model {
 	}
 
 	model := createModelFromChart(chart, track)
+	model.chartInfo.folderName = filepath.Base(chartPath)
+	model.chartInfo.track = track
 	model.songSounds.song = songStreamer
 	model.songSounds.guitar = guitarStreamer
 	model.songSounds.bass = bassStreamer
@@ -126,7 +145,7 @@ func createModelFromChart(chart *Chart, trackName string) model {
 	lineTime := 30 * time.Millisecond
 	strumTolerance := 80 * time.Millisecond
 	fretboardHeight := 35
-	return model{chart, playableNotes, startTime, 0,
+	return model{chart, chartInfo{}, playableNotes, startTime, 0,
 		settings{fretboardHeight, lineTime, strumTolerance},
 		playStats{-1, 0, 0},
 		0, viewModel{}, songSounds{}}
@@ -170,7 +189,10 @@ func (m model) CreateCurrentNoteChart() viewModel {
 			note := m.realTimeNotes[j]
 
 			if note.TimeStamp >= displayTimeMs {
-				noteColors[note.NoteType] = true
+				if !note.played {
+					noteColors[note.NoteType] = true
+				}
+
 				latestNotPrintedNoteIndex = j - 1
 			} else {
 				latestNotPrintedNoteIndex = j
@@ -183,7 +205,7 @@ func (m model) CreateCurrentNoteChart() viewModel {
 		displayTimeMs -= lineTimeMs
 	}
 
-	return viewModel{result}
+	return viewModel{result, m.viewModel.noteStates}
 }
 
 // updates view model info based on model.currentTimeMs
@@ -221,8 +243,16 @@ func (m model) ProcessNoNotePlayed(strumTimeMs int) model {
 			m.playStats.noteStreak = 0
 			continue
 		}
-
 	}
+
+	for i, v := range m.viewModel.noteStates {
+		rem := strumTimeMs - litDurationMs
+		if v.lastPlayedMs < rem {
+			m.viewModel.noteStates[i].overHit = false
+			m.viewModel.noteStates[i].playedCorrectly = false
+		}
+	}
+
 	return m
 }
 
@@ -233,29 +263,43 @@ func (m model) PlayNote(colorIndex int, strumTimeMs int) model {
 	maxTime := strumTimeMs + strumToleranceMs
 	for i := m.playStats.lastPlayedNoteIndex + 1; i < len(m.realTimeNotes); i++ {
 		note := m.realTimeNotes[i]
-
-		if note.TimeStamp > maxTime {
-			// overstrum. no notes around
-			m.playStats.noteStreak = 0
-			break
-		}
-
 		if note.TimeStamp < minTime {
 			// missed a previous note
 			m.playStats.lastPlayedNoteIndex = i
 			m.playStats.noteStreak = 0
+			// continue to check next note
 			continue
 		}
 
+		if note.TimeStamp > maxTime {
+			// overstrum. no notes around
+			m.viewModel.noteStates[colorIndex].overHit = true
+			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
+			m.playStats.noteStreak = 0
+			break
+		}
 		if note.NoteType == colorIndex {
+			m.realTimeNotes[i].played = true
 			m.playStats.notesHit++
 			m.playStats.noteStreak++
+			m.viewModel.noteStates[colorIndex].playedCorrectly = true
+			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
 			m.playStats.lastPlayedNoteIndex = i
 			break
 		} else {
 			// played wrong note
+			m.viewModel.noteStates[colorIndex].overHit = true
+			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
 			m.playStats.noteStreak = 0
 			break
+		}
+	}
+
+	for i, v := range m.viewModel.noteStates {
+		rem := strumTimeMs - litDurationMs
+		if v.lastPlayedMs < rem {
+			m.viewModel.noteStates[i].overHit = false
+			m.viewModel.noteStates[i].playedCorrectly = false
 		}
 	}
 

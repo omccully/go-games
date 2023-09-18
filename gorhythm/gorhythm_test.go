@@ -111,6 +111,14 @@ func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 	if model.playStats.noteStreak != 0 {
 		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
 	}
+
+	if model.viewModel.noteStates[1].playedCorrectly {
+		t.Error("Expected note to not be played correctly, got", model.viewModel.noteStates[1].playedCorrectly)
+	}
+
+	if !model.viewModel.noteStates[1].overHit {
+		t.Error("Expected note to be overhit, got", model.viewModel.noteStates[1].overHit)
+	}
 }
 
 func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
@@ -126,17 +134,42 @@ func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 	strumLineIndex := model.getStrumLineIndex()
 	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
 	model.playStats.noteStreak = 10
+
+	if model.realTimeNotes[0].played {
+		t.Error("Expected note to not be marked as played, got", model.realTimeNotes[0].played)
+	}
+
 	hitModel := model.PlayNote(0, strumLineTime)
 
 	// correct note hit
 	if hitModel.playStats.noteStreak != 11 {
-		t.Error("Expected note streak to be 11, got", model.playStats.noteStreak)
+		t.Error("Expected note streak to be 11, got", hitModel.playStats.noteStreak)
+	}
+
+	if !hitModel.viewModel.noteStates[0].playedCorrectly {
+		t.Error("Expected note to be played correctly, got", hitModel.viewModel.noteStates[1].playedCorrectly)
+	}
+
+	if hitModel.viewModel.noteStates[0].overHit {
+		t.Error("Expected note to not be overhit, got", hitModel.viewModel.noteStates[1].overHit)
+	}
+
+	if !hitModel.realTimeNotes[0].played {
+		t.Error("Expected note to be marked as played, got", hitModel.realTimeNotes[0].played)
 	}
 
 	missModel := model.PlayNote(2, strumLineTime)
 	// wrong note
 	if missModel.playStats.noteStreak != 0 {
-		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+		t.Error("Expected note streak to be 0, got", missModel.playStats.noteStreak)
+	}
+
+	if missModel.viewModel.noteStates[2].playedCorrectly {
+		t.Error("Expected note to not be played correctly, got", missModel.viewModel.noteStates[1].playedCorrectly)
+	}
+
+	if !missModel.viewModel.noteStates[2].overHit {
+		t.Error("Expected note to be overhit, got", missModel.viewModel.noteStates[1].overHit)
 	}
 }
 

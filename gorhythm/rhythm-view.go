@@ -15,10 +15,12 @@ var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#e68226")),
 }
 
+var overhitStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
+
 func (m model) View() string {
 	r := strings.Builder{}
 	strumLineIndex := m.getStrumLineIndex()
-	noteStreakLineIndex := strumLineIndex - 5
+	songInfoLineIndex := strumLineIndex - 6
 
 	for i, line := range m.viewModel.NoteLine {
 		for noteType, isNote := range line.NoteColors {
@@ -32,7 +34,11 @@ func (m model) View() string {
 				r.WriteString(noteStyles[noteType].Render("(O)"))
 			} else {
 				if i == strumLineIndex {
-					r.WriteString("---")
+					if m.viewModel.noteStates[noteType].overHit {
+						r.WriteString(overhitStyle.Render("-X-"))
+					} else {
+						r.WriteString(noteStyles[noteType].Render("---"))
+					}
 				} else {
 					r.WriteString("   ")
 				}
@@ -47,16 +53,24 @@ func (m model) View() string {
 		r.WriteString("\t\t\t")
 		r.WriteString(strconv.Itoa(line.DisplayTimeMs))
 
-		if i == noteStreakLineIndex {
+		if i == songInfoLineIndex {
+			r.WriteString("\t\t")
+			r.WriteString(m.chartInfo.folderName)
+		}
+		if i == songInfoLineIndex+1 {
+			r.WriteString("\t\tTrack: ")
+			r.WriteString(m.chartInfo.track)
+		}
+		if i == songInfoLineIndex+2 {
 			r.WriteString("\t\tNote streak: ")
 			r.WriteString(strconv.Itoa(m.playStats.noteStreak))
 		}
-		if i == noteStreakLineIndex+1 {
+		if i == songInfoLineIndex+3 {
 			r.WriteString("\t\tNotes hit: ")
 			r.WriteString(strconv.Itoa(m.playStats.notesHit))
 			r.WriteString("/" + strconv.Itoa(m.playStats.lastPlayedNoteIndex+1))
 		}
-		if i == noteStreakLineIndex+2 {
+		if i == songInfoLineIndex+4 {
 			r.WriteString("\t\t: ")
 			r.WriteString(strconv.Itoa(m.currentStrumTimeMs()))
 		}
