@@ -59,7 +59,7 @@ type playableNote struct {
 	Note
 }
 
-func initialPlayModel(chartFolderPath string, track string) playSongModel {
+func initialPlayModel(chartFolderPath string, track string, stngs settings) playSongModel {
 	file, err := os.Open(filepath.Join(chartFolderPath, "notes.chart"))
 	if err != nil {
 		panic(err)
@@ -84,7 +84,7 @@ func initialPlayModel(chartFolderPath string, track string) playSongModel {
 		//panic(err)
 	}
 
-	model := createModelFromChart(chart, track)
+	model := createModelFromChart(chart, track, stngs)
 	model.chartInfo.folderName = filepath.Base(chartFolderPath)
 	model.chartInfo.track = track
 	model.songSounds.song = songStreamer
@@ -109,7 +109,7 @@ func (m playSongModel) getStrumLineIndex() int {
 	return m.settings.fretBoardHeight - 5
 }
 
-func createModelFromChart(chart *Chart, trackName string) playSongModel {
+func createModelFromChart(chart *Chart, trackName string, stngs settings) playSongModel {
 	realNotes := getNotesWithRealTimestamps(chart, trackName)
 	playableNotes := make([]playableNote, len(realNotes))
 	for i, note := range realNotes {
@@ -117,11 +117,9 @@ func createModelFromChart(chart *Chart, trackName string) playSongModel {
 	}
 
 	startTime := time.Time{}
-	lineTime := 30 * time.Millisecond
-	strumTolerance := 100 * time.Millisecond
-	fretboardHeight := 35
+
 	return playSongModel{chart, chartInfo{}, playableNotes, startTime, 0,
-		settings{fretboardHeight, lineTime, strumTolerance},
+		stngs,
 		playStats{-1, 0, 0},
 		0, viewModel{}, songSounds{}}
 }

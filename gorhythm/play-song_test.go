@@ -35,7 +35,7 @@ func countNotesOfColor(vm viewModel, color int) int {
 func TestViewBeforeNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
-	model := createModelFromChart(chart, "ExpertSingle")
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
 	model.settings.lineTime = 100 * time.Millisecond
 
 	vm := model.CreateCurrentNoteChart()
@@ -56,7 +56,7 @@ func TestViewBeforeNotes(t *testing.T) {
 func TestViewFirstNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
-	model := createModelFromChart(chart, "ExpertSingle")
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
 	model.settings.lineTime = 100 * time.Millisecond
 	model.currentTimeMs = 12100
 
@@ -92,7 +92,7 @@ func TestViewFirstNotes(t *testing.T) {
 
 func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle")
+	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 
@@ -123,7 +123,7 @@ func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 
 func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle")
+	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 
@@ -175,7 +175,7 @@ func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 
 func TestHitNote_ThenDidntPlayNextNote_ResetsStreakWhenNoteIsOutsideOfWindow(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle")
+	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 
@@ -207,7 +207,7 @@ func TestHitNote_ThenDidntPlayNextNote_ResetsStreakWhenNoteIsOutsideOfWindow(t *
 
 func TestDoubleStrumSameNote_ResetsNoteStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle")
+	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 
@@ -228,7 +228,7 @@ func TestDoubleStrumSameNote_ResetsNoteStreak(t *testing.T) {
 
 func TestStrumWrongNote_ThenCorrectNote_AllowsPlayingCorrectNote(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle")
+	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 
@@ -248,7 +248,7 @@ func TestStrumWrongNote_ThenCorrectNote_AllowsPlayingCorrectNote(t *testing.T) {
 
 func TestPlayChordNote_OutOfChartOrder_DoesNotResetStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle")
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 
@@ -275,7 +275,7 @@ func TestPlayChordNote_OutOfChartOrder_DoesNotResetStreak(t *testing.T) {
 
 func TestPlayChordNoteWrongByDoubletappingFirstNote_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle")
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 
@@ -303,7 +303,7 @@ func TestPlayChordNoteWrongByDoubletappingFirstNote_ResetsStreak(t *testing.T) {
 
 func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle")
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 
@@ -334,7 +334,7 @@ func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
 
 func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle")
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
 

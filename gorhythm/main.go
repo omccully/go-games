@@ -23,6 +23,7 @@ type mainModel struct {
 	state           sessionState
 	selectSongModel selectSongModel
 	playSongModel   playSongModel
+	settings        settings
 }
 
 type chartInfo struct {
@@ -36,6 +37,13 @@ type settings struct {
 	strumTolerance  time.Duration
 }
 
+func defaultSettings() settings {
+	lineTime := 30 * time.Millisecond
+	strumTolerance := 100 * time.Millisecond
+	fretboardHeight := 35
+	return settings{fretboardHeight, lineTime, strumTolerance}
+}
+
 func initialMainModel() mainModel {
 	chartFolderPath := ""
 	if len(os.Args) > 1 {
@@ -47,12 +55,17 @@ func initialMainModel() mainModel {
 		track = os.Args[2]
 	}
 
+	lineTime := 30 * time.Millisecond
+	strumTolerance := 100 * time.Millisecond
+	fretboardHeight := 35
+	settings := settings{fretboardHeight, lineTime, strumTolerance}
+
 	if chartFolderPath == "" {
 
-		return mainModel{chooseSong, initialSelectSongModel(), playSongModel{}}
+		return mainModel{chooseSong, initialSelectSongModel(), playSongModel{}, settings}
 	} else {
-		playModel := initialPlayModel(chartFolderPath, track)
-		return mainModel{playSong, selectSongModel{}, playModel}
+		playModel := initialPlayModel(chartFolderPath, track, settings)
+		return mainModel{playSong, selectSongModel{}, playModel, settings}
 	}
 }
 
@@ -71,15 +84,23 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.playSongModel.OnQuit()
 		return m, tea.Quit
 	}
+	switch msg := msg.(type) {
+
+	case tea.WindowSizeMsg:
+		m.settings.fretBoardHeight = msg.Height - 3
+		return m, nil
+	}
 	switch m.state {
 	case chooseSong:
 		selectModel, cmd := m.selectSongModel.Update(msg)
 		selectedSong := selectModel.(selectSongModel).selectedSongPath
 		if selectedSong != "" {
 			playModel := initialPlayModel(selectModel.(selectSongModel).selectedSongPath,
-				"ExpertSingle")
+				"ExpertSingle", m.settings)
 			pmCmd := playModel.Init()
-			return mainModel{playSong, selectSongModel{}, playModel}, pmCmd
+			m.state = playSong
+			m.playSongModel = playModel
+			return m, pmCmd
 		}
 		m.selectSongModel = selectModel.(selectSongModel)
 		return m, cmd
