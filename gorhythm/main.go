@@ -62,9 +62,10 @@ type viewModel struct {
 }
 
 type currentNoteState struct {
-	playedCorrectly bool
-	overHit         bool
-	lastPlayedMs    int
+	playedCorrectly                    bool
+	overHit                            bool
+	lastPlayedMs                       int
+	lastCorrectlyPlayedChordNoteTimeMs int // used for tracking chords
 }
 
 type tickMsg time.Time
@@ -143,7 +144,7 @@ func createModelFromChart(chart *Chart, trackName string) model {
 
 	startTime := time.Time{}
 	lineTime := 30 * time.Millisecond
-	strumTolerance := 80 * time.Millisecond
+	strumTolerance := 100 * time.Millisecond
 	fretboardHeight := 35
 	return model{chart, chartInfo{}, playableNotes, startTime, 0,
 		settings{fretboardHeight, lineTime, strumTolerance},
@@ -278,21 +279,72 @@ func (m model) PlayNote(colorIndex int, strumTimeMs int) model {
 			m.playStats.noteStreak = 0
 			break
 		}
-		if note.NoteType == colorIndex {
-			m.realTimeNotes[i].played = true
-			m.playStats.notesHit++
-			m.playStats.noteStreak++
-			m.viewModel.noteStates[colorIndex].playedCorrectly = true
-			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
-			m.playStats.lastPlayedNoteIndex = i
-			break
-		} else {
-			// played wrong note
-			m.viewModel.noteStates[colorIndex].overHit = true
-			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
-			m.playStats.noteStreak = 0
-			break
+
+		// must check for chords
+		chord := []playableNote{note}
+		for j := i + 1; j < len(m.realTimeNotes); j++ {
+			if m.realTimeNotes[j].TimeStamp == note.TimeStamp {
+				chord = append(chord, m.realTimeNotes[j])
+			} else {
+				break
+			}
 		}
+
+		if len(chord) == 1 {
+			if note.NoteType == colorIndex {
+				m.realTimeNotes[i].played = true
+				m.playStats.notesHit++
+				m.playStats.noteStreak++
+				m.viewModel.noteStates[colorIndex].playedCorrectly = true
+				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
+				m.playStats.lastPlayedNoteIndex = i
+				break
+			} else {
+				// played wrong note
+				m.viewModel.noteStates[colorIndex].overHit = true
+				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
+				m.playStats.noteStreak = 0
+				break
+			}
+		} else {
+			allChordNotesPlayed := true
+			for _, chordNote := range chord {
+				if chordNote.NoteType == colorIndex {
+					if m.viewModel.noteStates[colorIndex].lastCorrectlyPlayedChordNoteTimeMs == chordNote.TimeStamp {
+						// already played!!
+						m.playStats.noteStreak = 0
+						allChordNotesPlayed = false
+						for _, chordNote2 := range chord {
+							// decrement all times for chord notes because they were all played incorrectly
+							m.viewModel.noteStates[chordNote2.NoteType].lastCorrectlyPlayedChordNoteTimeMs--
+						}
+					}
+					m.viewModel.noteStates[colorIndex].lastCorrectlyPlayedChordNoteTimeMs =
+						chordNote.TimeStamp
+					continue
+				}
+				if m.viewModel.noteStates[chordNote.NoteType].lastCorrectlyPlayedChordNoteTimeMs != chordNote.TimeStamp {
+					allChordNotesPlayed = false
+				}
+			}
+			if allChordNotesPlayed {
+
+				// can't decide if I want to count chords as 1 note or multiple
+				m.playStats.notesHit += len(chord)
+				m.playStats.noteStreak += len(chord)
+				for ci, chordNote := range chord {
+					m.viewModel.noteStates[chordNote.NoteType].playedCorrectly = true
+					m.viewModel.noteStates[chordNote.NoteType].lastPlayedMs = strumTimeMs
+
+					m.realTimeNotes[i+ci].played = true
+				}
+				m.playStats.lastPlayedNoteIndex += len(chord)
+				break
+			} else {
+				break
+			}
+		}
+
 	}
 
 	for i, v := range m.viewModel.noteStates {
