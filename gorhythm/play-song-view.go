@@ -17,7 +17,7 @@ var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
 
 var overhitStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
 
-func (m model) View() string {
+func (m playSongModel) View() string {
 	r := strings.Builder{}
 	strumLineIndex := m.getStrumLineIndex()
 	songInfoLineIndex := strumLineIndex - 6

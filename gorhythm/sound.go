@@ -32,18 +32,18 @@ func openAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
 }
 
 func closeSoundStreams(songSounds songSounds) {
-	guitarCLoser := songSounds.guitar.(beep.StreamSeekCloser)
-	if guitarCLoser != nil {
+	guitarCLoser, ok := songSounds.guitar.(beep.StreamSeekCloser)
+	if ok && guitarCLoser != nil {
 		guitarCLoser.Close()
 	}
 
-	songCLoser := songSounds.song.(beep.StreamSeekCloser)
-	if songCLoser != nil {
+	songCLoser, ok := songSounds.song.(beep.StreamSeekCloser)
+	if ok && songCLoser != nil {
 		songCLoser.Close()
 	}
 
-	bassCloser := songSounds.bass.(beep.StreamSeekCloser)
-	if bassCloser != nil {
+	bassCloser, ok := songSounds.bass.(beep.StreamSeekCloser)
+	if ok && bassCloser != nil {
 		bassCloser.Close()
 	}
 }
