@@ -69,7 +69,7 @@ func initialMainModel() mainModel {
 	}
 }
 
-func (m mainModel) Init() tea.Cmd {
+func (m mainModel) innerInit() tea.Cmd {
 	switch m.state {
 	case chooseSong:
 		return m.selectSongModel.Init()
@@ -77,6 +77,10 @@ func (m mainModel) Init() tea.Cmd {
 		return m.playSongModel.Init()
 	}
 	return nil
+}
+
+func (m mainModel) Init() tea.Cmd {
+	return tea.Batch(tea.EnterAltScreen, m.innerInit())
 }
 
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

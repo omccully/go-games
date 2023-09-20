@@ -1,8 +1,11 @@
 package main
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -59,14 +62,46 @@ type playableNote struct {
 	Note
 }
 
-func initialPlayModel(chartFolderPath string, track string, stngs settings) playSongModel {
-	file, err := os.Open(filepath.Join(chartFolderPath, "notes.chart"))
-	if err != nil {
-		panic(err)
+func convertMidi(midiFilePath string) (string, error) {
+	p := os.Getenv("GORHYTHM_MID2CHART_JARPATH")
+	if p == "" {
+		panic("Selected a song with only a notes.mid file and no notes.chart, and GORHYTHM_MID2CHART_JARPATH is not set to convert it.")
 	}
 
-	chart, err := ParseF(file)
-	file.Close()
+	println()
+	cmd := exec.Command("java", "-jar", p, midiFilePath)
+	var out strings.Builder
+	cmd.Stdout = &out
+	err := cmd.Run()
+	return p + " " + midiFilePath + " " + out.String(), err
+}
+
+func initialPlayModel(chartFolderPath string, track string, stngs settings) playSongModel {
+	notesFilePath := filepath.Join(chartFolderPath, "notes.chart")
+	chartFile, err := os.Open(notesFilePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			midFilePath := filepath.Join(chartFolderPath, "notes.mid")
+			_, midErr := os.Stat(midFilePath)
+			if midErr != nil {
+				panic(err.Error() + " " + midErr.Error())
+			}
+			msg, err := convertMidi(midFilePath)
+			if err != nil {
+				panic(msg + " " + err.Error())
+			}
+
+			chartFile, err = os.Open(notesFilePath)
+			if err != nil {
+				panic("still no chart: " + err.Error())
+			}
+		} else {
+			panic(err)
+		}
+	}
+
+	chart, err := ParseF(chartFile)
+	chartFile.Close()
 	if err != nil {
 		panic(err)
 	}
@@ -126,7 +161,7 @@ func createModelFromChart(chart *Chart, trackName string, stngs settings) playSo
 
 func (m playSongModel) Init() tea.Cmd {
 	speaker.Init(m.songSounds.songFormat.SampleRate, m.songSounds.songFormat.SampleRate.N(time.Second/10))
-	return tea.Batch(tea.EnterAltScreen, timerCmd(m.settings.lineTime))
+	return tea.Batch(timerCmd(m.settings.lineTime))
 }
 
 func timerCmd(d time.Duration) tea.Cmd {

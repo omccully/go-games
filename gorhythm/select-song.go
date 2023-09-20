@@ -58,7 +58,7 @@ func initialSelectSongModel() selectSongModel {
 
 	pauseMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
 	pauseMenuList.Title = "root"
-	pauseMenuList.SetSize(55, 35)
+	pauseMenuList.SetSize(55, 30)
 	pauseMenuList.SetShowStatusBar(false)
 	pauseMenuList.SetFilteringEnabled(false)
 	pauseMenuList.SetShowHelp(false)
@@ -95,7 +95,7 @@ func populateSongFolder(fldr *songFolder) {
 			fldr.subFolders = append(fldr.subFolders, child)
 			populateSongFolder(child)
 		} else {
-			if f.Name() == "notes.chart" {
+			if f.Name() == "notes.chart" || f.Name() == "notes.mid" {
 				incrementSongCount(fldr)
 				fldr.isLeaf = true
 			}
@@ -144,6 +144,16 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.menuList.Title = i.name
 					m.selectedSongFolder = i
 				}
+			}
+		case "backspace":
+			if m.selectedSongFolder.parent != nil {
+				listItems := []list.Item{}
+				for _, f := range m.selectedSongFolder.parent.subFolders {
+					listItems = append(listItems, f)
+				}
+				m.menuList.SetItems(listItems)
+				m.menuList.Title = m.selectedSongFolder.parent.name
+				m.selectedSongFolder = m.selectedSongFolder.parent
 			}
 		default:
 			m.menuList, _ = m.menuList.Update(msg)
