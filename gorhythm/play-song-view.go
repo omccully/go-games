@@ -15,7 +15,7 @@ var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#e68226")),
 }
 
-var overhitStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
+var overhitStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff"))
 
 func (m playSongModel) View() string {
 	r := strings.Builder{}

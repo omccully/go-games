@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/faiface/beep/effects"
 	"github.com/faiface/beep/speaker"
 )
 
@@ -125,6 +126,12 @@ func initialPlayModel(chartFolderPath string, track string, stngs settings) play
 	model.songSounds.song = songStreamer
 	model.songSounds.guitar = guitarStreamer
 	model.songSounds.bass = bassStreamer
+	model.songSounds.guitarVolume = &effects.Volume{
+		Streamer: guitarStreamer,
+		Base:     2,
+		Volume:   0,
+		Silent:   false,
+	}
 
 	if guitarFormat.SampleRate != songFormat.SampleRate {
 		panic("guitar and song sample rates do not match")
@@ -238,6 +245,7 @@ func (m playSongModel) ProcessNoNotePlayed(strumTimeMs int) playSongModel {
 			// missed a previous note
 			m.playStats.lastPlayedNoteIndex = i
 			m.playStats.noteStreak = 0
+			m.songSounds.guitarVolume.Silent = true
 			continue
 		}
 	}
@@ -265,6 +273,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			m.playStats.lastPlayedNoteIndex = i
 			m.playStats.noteStreak = 0
 			// continue to check next note
+			m.songSounds.guitarVolume.Silent = true
 			continue
 		}
 
@@ -273,6 +282,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			m.viewModel.noteStates[colorIndex].overHit = true
 			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
 			m.playStats.noteStreak = 0
+			m.songSounds.guitarVolume.Silent = true
 			break
 		}
 
@@ -293,12 +303,14 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				m.playStats.noteStreak++
 				m.viewModel.noteStates[colorIndex].playedCorrectly = true
 				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
+				m.songSounds.guitarVolume.Silent = false
 				m.playStats.lastPlayedNoteIndex = i
 				break
 			} else {
 				// played wrong note
 				m.viewModel.noteStates[colorIndex].overHit = true
 				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
+				m.songSounds.guitarVolume.Silent = true
 				m.playStats.noteStreak = 0
 				break
 			}
@@ -334,6 +346,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 
 					m.realTimeNotes[i+ci].played = true
 				}
+				m.songSounds.guitarVolume.Silent = false
 				m.playStats.lastPlayedNoteIndex += len(chord)
 				break
 			} else {
@@ -371,7 +384,7 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.viewModel.NoteLine[m.getStrumLineIndex()-1].DisplayTimeMs == 0 {
 			speaker.Play(m.songSounds.song)
-			speaker.Play(m.songSounds.guitar)
+			speaker.Play(m.songSounds.guitarVolume)
 			if m.songSounds.bass != nil {
 				speaker.Play(m.songSounds.bass)
 			}

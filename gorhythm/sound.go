@@ -4,14 +4,16 @@ import (
 	"os"
 
 	"github.com/faiface/beep"
+	"github.com/faiface/beep/effects"
 	"github.com/faiface/beep/vorbis"
 )
 
 type songSounds struct {
-	guitar     beep.StreamSeeker
-	song       beep.StreamSeeker
-	bass       beep.StreamSeeker
-	songFormat beep.Format
+	guitar       beep.StreamSeeker
+	song         beep.StreamSeeker
+	bass         beep.StreamSeeker
+	songFormat   beep.Format
+	guitarVolume *effects.Volume
 }
 
 func openAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
