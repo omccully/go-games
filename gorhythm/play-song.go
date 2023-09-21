@@ -27,7 +27,8 @@ type playSongModel struct {
 	nextNoteIndex int // the index of the next note that should not be displayed yet
 	viewModel     viewModel
 
-	songSounds songSounds
+	songSounds   songSounds
+	soundEffects soundEffects
 }
 
 type playStats struct {
@@ -107,18 +108,15 @@ func initialPlayModel(chartFolderPath string, track string, stngs settings) play
 		panic(err)
 	}
 
-	songStreamer, songFormat, err := openAudioFile(filepath.Join(chartFolderPath, "song.ogg"))
+	songStreamer, songFormat, err := openOggAudioFile(filepath.Join(chartFolderPath, "song.ogg"))
 	if err != nil {
 		panic(err)
 	}
-	guitarStreamer, guitarFormat, err := openAudioFile(filepath.Join(chartFolderPath, "guitar.ogg"))
+	guitarStreamer, guitarFormat, err := openOggAudioFile(filepath.Join(chartFolderPath, "guitar.ogg"))
 	if err != nil {
 		panic(err)
 	}
-	bassStreamer, bassFormat, err := openAudioFile(filepath.Join(chartFolderPath, "rhythm.ogg"))
-	if err != nil {
-		//panic(err)
-	}
+	bassStreamer, bassFormat, _ := openOggAudioFile(filepath.Join(chartFolderPath, "rhythm.ogg"))
 
 	model := createModelFromChart(chart, track, stngs)
 	model.chartInfo.folderName = filepath.Base(chartFolderPath)
@@ -126,11 +124,17 @@ func initialPlayModel(chartFolderPath string, track string, stngs settings) play
 	model.songSounds.song = songStreamer
 	model.songSounds.guitar = guitarStreamer
 	model.songSounds.bass = bassStreamer
+
 	model.songSounds.guitarVolume = &effects.Volume{
 		Streamer: guitarStreamer,
 		Base:     2,
 		Volume:   0,
 		Silent:   false,
+	}
+
+	model.soundEffects, err = loadSoundEffects()
+	if err != nil {
+		panic(err)
 	}
 
 	if guitarFormat.SampleRate != songFormat.SampleRate {
@@ -163,7 +167,7 @@ func createModelFromChart(chart *Chart, trackName string, stngs settings) playSo
 	return playSongModel{chart, chartInfo{}, playableNotes, startTime, 0,
 		stngs,
 		playStats{-1, 0, 0},
-		0, viewModel{}, songSounds{}}
+		0, viewModel{}, songSounds{}, soundEffects{}}
 }
 
 func (m playSongModel) Init() tea.Cmd {
@@ -245,7 +249,7 @@ func (m playSongModel) ProcessNoNotePlayed(strumTimeMs int) playSongModel {
 			// missed a previous note
 			m.playStats.lastPlayedNoteIndex = i
 			m.playStats.noteStreak = 0
-			m.songSounds.guitarVolume.Silent = true
+			m.muteGuitar()
 			continue
 		}
 	}
@@ -273,7 +277,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			m.playStats.lastPlayedNoteIndex = i
 			m.playStats.noteStreak = 0
 			// continue to check next note
-			m.songSounds.guitarVolume.Silent = true
+			m.muteGuitar()
 			continue
 		}
 
@@ -282,7 +286,15 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			m.viewModel.noteStates[colorIndex].overHit = true
 			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
 			m.playStats.noteStreak = 0
-			m.songSounds.guitarVolume.Silent = true
+			m.muteGuitar()
+
+			if m.soundEffects.initialized {
+				speaker.Lock()
+				m.soundEffects.wrongNote.soundStream.Seek(0)
+				speaker.Unlock()
+				speaker.Play(m.soundEffects.wrongNote.soundStream)
+			}
+
 			break
 		}
 
@@ -303,14 +315,17 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				m.playStats.noteStreak++
 				m.viewModel.noteStates[colorIndex].playedCorrectly = true
 				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
-				m.songSounds.guitarVolume.Silent = false
+				m.unmuteGuitar()
 				m.playStats.lastPlayedNoteIndex = i
 				break
 			} else {
 				// played wrong note
 				m.viewModel.noteStates[colorIndex].overHit = true
 				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
-				m.songSounds.guitarVolume.Silent = true
+				m.muteGuitar()
+				if m.soundEffects.initialized {
+					speaker.Play(m.soundEffects.wrongNote.soundStream)
+				}
 				m.playStats.noteStreak = 0
 				break
 			}
@@ -346,7 +361,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 
 					m.realTimeNotes[i+ci].played = true
 				}
-				m.songSounds.guitarVolume.Silent = false
+				m.unmuteGuitar()
 				m.playStats.lastPlayedNoteIndex += len(chord)
 				break
 			} else {
@@ -365,6 +380,20 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 	}
 
 	return m
+}
+
+func (m playSongModel) muteGuitar() {
+	m.setGuitarSilent(true)
+}
+
+func (m playSongModel) unmuteGuitar() {
+	m.setGuitarSilent(false)
+}
+
+func (m playSongModel) setGuitarSilent(silent bool) {
+	speaker.Lock()
+	m.songSounds.guitarVolume.Silent = silent
+	speaker.Unlock()
 }
 
 func (m playSongModel) OnQuit() {
