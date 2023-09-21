@@ -35,7 +35,7 @@ type Note struct {
 	// 0, 1, 2, 3, 4 (for guitar: green, red, yellow, blue, orange)
 	NoteType int
 
-	ExtraData int
+	ExtraData int64
 }
 
 func (c *Chart) HandleChartElement(section string, element ChartElement) error {
@@ -85,12 +85,12 @@ func (c *Chart) HandleChartElement(section string, element ChartElement) error {
 			return err
 		}
 
-		extraData, err := strconv.ParseInt(split[2], 10, 32)
+		extraData, err := strconv.ParseInt(split[2], 10, 64)
 		if err != nil {
 			return err
 		}
 
-		note := Note{int(timeStamp), int(noteType), int(extraData)}
+		note := Note{int(timeStamp), int(noteType), int64(extraData)}
 
 		_, trackExists := c.Tracks[section]
 		if !trackExists {
@@ -220,7 +220,7 @@ func getNotesWithRealTimestamps(chart *Chart, trackName string) []Note {
 			currentTick = note.TimeStamp
 		}
 
-		heldNoteTime := int(timeElapsed(float64(note.ExtraData), currentBpm, float64(chart.SongMetadata.Resolution)))
+		heldNoteTime := int64(timeElapsed(float64(note.ExtraData), currentBpm, float64(chart.SongMetadata.Resolution)))
 		result = append(result, Note{int(currentTime), note.NoteType, heldNoteTime})
 	}
 	return result

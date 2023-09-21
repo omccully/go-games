@@ -1,3 +1,5 @@
+package com.omccully.midtochart;
+
 import java.util.Scanner;
 import java.util.ArrayList;
 import javax.sound.midi.Track;
@@ -86,6 +88,8 @@ public class Mid2Chart
             return notices + "PART GUITAR not found. No chart created.\n\n--------------\n";
         }
         Mid2Chart.scaler = 192.0 / Mid2Chart.midi.getResolution();
+        System.out.println("Resolution = " + Mid2Chart.midi.getResolution() + "\n");
+        System.out.println("Scaler = " + Mid2Chart.scaler + "\n");
         notices = notices + "NumTracks = " + trackArr.length + "\n";
         writeSync(trackArr[0]);
         Mid2Chart.Header = Mid2Chart.Header + "\tName = " + Mid2Chart.chartName + "\n";
@@ -171,7 +175,11 @@ public class Mid2Chart
         byte[] event = null;
         for (int i = 0; i < track.size(); ++i) {
             tick = track.get(i).getTick();
-            tick *= (long)Mid2Chart.scaler;
+            //System.out.println("Tick = " + tick + "\n");
+            //System.out.println("Scaler = " + Mid2Chart.scaler + "\n");
+            tick = (long)(tick * Mid2Chart.scaler);
+            //System.out.println("TickAfter = " + tick + "\n");
+            //System.console().readLine("enter to continue");
             event = track.get(i).getMessage().getMessage();
             final int type = event[1];
             if (type == 3) {
@@ -211,7 +219,8 @@ public class Mid2Chart
             if (!skip[i]) {
                 final byte[] event = track.get(i).getMessage().getMessage();
                 long tick = track.get(i).getTick();
-                tick *= (long)Mid2Chart.scaler;
+                //System.out.println("Tick = " + tick + "\n");
+                tick = (long)(tick * Mid2Chart.scaler);
                 final String line = "";
                 int type = event[0] & 0xFF;
                 if (type >= 144 && type <= 159) {
@@ -223,11 +232,13 @@ public class Mid2Chart
                         if (e[1] == note) {
                             if (type >= 128 && type <= 143) {
                                 off = track.get(j).getTick();
-                                off *= (long)Mid2Chart.scaler;
+                                //System.out.println("offt1 = " + off);
+                                off = (long)(off * Mid2Chart.scaler);
                             }
                             else if (type >= 144 && type <= 159) {
                                 off = track.get(j).getTick();
-                                off *= (long)Mid2Chart.scaler;
+                                //System.out.println("offt2 = " + off);
+                                off = (long)(off * Mid2Chart.scaler);
                                 skip[j] = true;
                             }
                         }
@@ -236,6 +247,8 @@ public class Mid2Chart
                     if (sus < 96L) {
                         sus = 0L;
                     }
+                    //System.out.println(sus + " = " + off + " - " + tick + "\n");
+                    //System.console().readLine();
                     writeNoteLine(sec, tick, note, sus);
                 }
                 else if (event[0] == 255 && event[1] == 1) {
