@@ -16,6 +16,7 @@ type selectSongModel struct {
 	selectedSongPath   string
 	selectedChart      *Chart
 	selectedTrack      string
+	gameData           *gameData
 }
 
 type songFolder struct {
@@ -41,7 +42,7 @@ func (i *songFolder) Description() string {
 }
 func (i *songFolder) FilterValue() string { return i.name }
 
-func initialSelectSongModel() selectSongModel {
+func initialSelectSongModel(gd *gameData) selectSongModel {
 	model := selectSongModel{}
 
 	p := os.Getenv("GORHYTHM_SONGS_PATH")
@@ -57,13 +58,14 @@ func initialSelectSongModel() selectSongModel {
 	}
 
 	pauseMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
-	pauseMenuList.Title = "root"
+	pauseMenuList.Title = "Go Rhythm"
 	pauseMenuList.SetSize(55, 30)
 	pauseMenuList.SetShowStatusBar(false)
 	pauseMenuList.SetFilteringEnabled(false)
 	pauseMenuList.SetShowHelp(false)
 	pauseMenuList.DisableQuitKeybindings()
 	model.menuList = pauseMenuList
+	model.gameData = gd
 
 	return model
 }

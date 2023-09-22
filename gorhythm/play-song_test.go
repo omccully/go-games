@@ -372,8 +372,8 @@ func TestColorGradient(t *testing.T) {
 	}
 
 	hex := result.Hex()
-	if hex != "#ff0000" {
-		t.Error("Expected #ff0000, got", hex)
+	if hex != "ff0000" {
+		t.Error("Expected ff0000, got", hex)
 	}
 }
 
@@ -386,7 +386,7 @@ func TestColorGradient100(t *testing.T) {
 	}
 
 	hex := result.Hex()
-	if hex != "#00ff00" {
-		t.Error("Expected #00ff00, got", hex)
+	if hex != "00ff00" {
+		t.Error("Expected 00ff00, got", hex)
 	}
 }

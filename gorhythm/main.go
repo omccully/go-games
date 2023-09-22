@@ -23,6 +23,7 @@ type mainModel struct {
 	state           sessionState
 	selectSongModel selectSongModel
 	playSongModel   playSongModel
+	gameData        gameData
 	settings        settings
 }
 
@@ -60,12 +61,13 @@ func initialMainModel() mainModel {
 	fretboardHeight := 35
 	settings := settings{fretboardHeight, lineTime, strumTolerance}
 
-	if chartFolderPath == "" {
+	gd := getGameData()
 
-		return mainModel{chooseSong, initialSelectSongModel(), playSongModel{}, settings}
+	if chartFolderPath == "" {
+		return mainModel{chooseSong, initialSelectSongModel(&gd), playSongModel{}, gd, settings}
 	} else {
 		playModel := initialPlayModel(chartFolderPath, track, settings)
-		return mainModel{playSong, selectSongModel{}, playModel, settings}
+		return mainModel{playSong, selectSongModel{}, playModel, gd, settings}
 	}
 }
 
