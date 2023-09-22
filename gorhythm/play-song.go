@@ -64,7 +64,6 @@ func convertMidi(midiFilePath string) (string, error) {
 		panic("Selected a song with only a notes.mid file and no notes.chart, and GORHYTHM_MID2CHART_JARPATH is not set to convert it.")
 	}
 
-	println()
 	cmd := exec.Command("java", "-jar", p, midiFilePath)
 	var out strings.Builder
 	cmd.Stdout = &out
@@ -113,7 +112,7 @@ func initialPlayModel(chartFolderPath string, track string, stngs settings) play
 	bassStreamer, bassFormat, _ := openOggAudioFile(filepath.Join(chartFolderPath, "rhythm.ogg"))
 
 	model := createModelFromChart(chart, track, stngs)
-	model.chartInfo.folderName = filepath.Base(chartFolderPath)
+	model.chartInfo.fullFolderPath = chartFolderPath
 	model.chartInfo.track = track
 	model.songSounds.song = songStreamer
 	model.songSounds.guitar = guitarStreamer
@@ -160,7 +159,7 @@ func createModelFromChart(chart *Chart, trackName string, stngs settings) playSo
 
 	return playSongModel{chart, chartInfo{}, playableNotes, startTime, 0,
 		stngs,
-		playStats{-1, 0, 0, 0.5, 0},
+		playStats{-1, len(playableNotes), 0, 0, 0.5, 0},
 		0, viewModel{}, songSounds{}, soundEffects{}}
 }
 

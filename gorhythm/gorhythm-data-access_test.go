@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	cultOfPersonalityChartHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	cultOfPersonalityChartHash = "b9e7ce0974011f3e41b754b6f0a2f0cf9e7c7e47c67e1d45226d4fca1a7f955d"
 )
 
 func TestMigrateDatabase(t *testing.T) {
@@ -73,21 +73,14 @@ func TestSetSongScore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actualScore := verifiedScore[cultOfPersonalityChartHash].TrackScores["MediumSingle"].Score
+	actualScore := (*verifiedScore)[cultOfPersonalityChartHash].TrackScores["MediumSingle"].Score
 	if actualScore != 113210 {
 		t.Errorf("Verified score is %d, expected %d", actualScore, 113210)
 	}
 }
 
 func TestFileHash(t *testing.T) {
-	file, err := os.Open("sample-songs/cult-of-personality.chart")
-	if err != nil {
-		t.Error(err)
-	}
-
-	defer file.Close()
-
-	fileHash, err := hashFile(file)
+	fileHash, err := hashFileByPath("sample-songs/cult-of-personality.chart")
 
 	if err != nil {
 		t.Error(err)
@@ -97,25 +90,50 @@ func TestFileHash(t *testing.T) {
 	if fileHash != expected {
 		t.Errorf("File hash is %s, expected %s", fileHash, expected)
 	}
+
+	//fp1 := `C:\Users\omccu\GoRhythm\Guitar Hero III\DLC\Dropkick Murphys - Johnny, I Hardly Knew Ya\notes.chart`
+	fp1 := `C:\Users\omccu\GoRhythm\Guitar Hero III\DLC\Dropkick Murphys - Famous for Nothing\notes.chart`
+	fh2, _ := hashFileByPath(fp1)
+	println("fh " + fh2)
+	if fh2 == cultOfPersonalityChartHash {
+		t.Errorf("File hash is %s, expected not %s", fh2, cultOfPersonalityChartHash)
+	}
+}
+
+func TestFileHashesAreUnique(t *testing.T) {
+
+	filePaths := []string{
+		"sample-songs/cult-of-personality.chart",
+		"sample-songs/cliffs-of-dover.chart",
+		"sample-songs/schools-out.chart",
+	}
+
+	fileHashes := make(map[string]bool)
+	for _, fp := range filePaths {
+		fileHash, err := hashFileByPath(fp)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		println(fp + " File hash: " + fileHash)
+
+		if fileHashes[fileHash] {
+			t.Errorf("File hash %s is not unique", fileHash)
+		} else {
+			fileHashes[fileHash] = true
+		}
+	}
 }
 
 func TestScoreStructure(t *testing.T) {
-	file, err := os.Open("sample-songs/cult-of-personality.chart")
-	if err != nil {
-		t.Error(err)
-	}
-
-	defer file.Close()
-
-	fileHash, err := hashFile(file)
+	fileHash, err := hashFileByPath("sample-songs/cult-of-personality.chart")
 
 	if err != nil {
 		t.Error(err)
 	}
 
-	gd := gameData{}
-
-	gd.SongScores = make(map[string]songScore)
+	songScores := make(map[string]songScore)
 	ss := songScore{
 		song{fileHash,
 			`Guitar Hero III\Quickplay\Living Colour - Cult Of Personality`,
@@ -135,9 +153,9 @@ func TestScoreStructure(t *testing.T) {
 	ts := trackScore{score, fp}
 	ss.TrackScores[track] = ts
 
-	gd.SongScores[fileHash] = ss
+	songScores[fileHash] = ss
 
-	verifiedScore, err := gd.getVerifiedScore(fileHash, track)
+	verifiedScore, err := getVerifiedScore(&songScores, fileHash, track)
 
 	if err != nil {
 		t.Error(err)
@@ -162,9 +180,7 @@ func TestScoreStructure_VerifyFailed(t *testing.T) {
 		t.Error(err)
 	}
 
-	gd := gameData{}
-
-	gd.SongScores = make(map[string]songScore)
+	songScores := make(map[string]songScore)
 	ss := songScore{
 		song{fileHash,
 			`Guitar Hero III\Quickplay\Living Colour - Cult Of Personality`,
@@ -182,9 +198,9 @@ func TestScoreStructure_VerifyFailed(t *testing.T) {
 	ts := trackScore{900000, fp}
 	ss.TrackScores[track] = ts
 
-	gd.SongScores[fileHash] = ss
+	songScores[fileHash] = ss
 
-	verifiedScore, err := gd.getVerifiedScore(fileHash, track)
+	verifiedScore, err := getVerifiedScore(&songScores, fileHash, track)
 
 	if err != nil {
 		t.Error(err)

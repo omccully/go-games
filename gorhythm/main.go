@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,13 +24,9 @@ type mainModel struct {
 	state           sessionState
 	selectSongModel selectSongModel
 	playSongModel   playSongModel
-	gameData        gameData
+	songRootPath    string
+	dbAccessor      grDbAccessor
 	settings        settings
-}
-
-type chartInfo struct {
-	folderName string
-	track      string // difficulty
 }
 
 type settings struct {
@@ -61,13 +58,31 @@ func initialMainModel() mainModel {
 	fretboardHeight := 35
 	settings := settings{fretboardHeight, lineTime, strumTolerance}
 
-	gd := getGameData()
+	songRootPath := os.Getenv("GORHYTHM_SONGS_PATH")
+	if songRootPath == "" {
+		panic("GORHYTHM_SONGS_PATH not set")
+	}
+
+	err := createDataFolderIfDoesntExist()
+	if err != nil {
+		panic(err)
+	}
+	db, err := openDefaultDbConnection()
+	if err != nil {
+		panic(err)
+	}
+	_, err = db.migrateDatabase()
+	if err != nil {
+		panic(err)
+	}
 
 	if chartFolderPath == "" {
-		return mainModel{chooseSong, initialSelectSongModel(&gd), playSongModel{}, gd, settings}
+		return mainModel{chooseSong, initialSelectSongModel(songRootPath, db),
+			playSongModel{}, songRootPath, db, settings}
 	} else {
 		playModel := initialPlayModel(chartFolderPath, track, settings)
-		return mainModel{playSong, selectSongModel{}, playModel, gd, settings}
+		return mainModel{playSong, selectSongModel{}, playModel,
+			songRootPath, db, settings}
 	}
 }
 
@@ -85,9 +100,14 @@ func (m mainModel) Init() tea.Cmd {
 	return tea.Batch(tea.EnterAltScreen, m.innerInit())
 }
 
+func (m mainModel) onQuit() {
+	m.playSongModel.OnQuit()
+	m.dbAccessor.close()
+}
+
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if isForceQuitMsg(msg) {
-		m.playSongModel.OnQuit()
+		m.onQuit()
 		return m, tea.Quit
 	}
 	switch msg := msg.(type) {
@@ -112,7 +132,33 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case playSong:
 		playModel, cmd := m.playSongModel.Update(msg)
-		m.playSongModel = playModel.(playSongModel)
+		pm := playModel.(playSongModel)
+
+		if pm.playStats.finished() {
+			chartPath := filepath.Join(pm.chartInfo.fullFolderPath, "notes.chart")
+			fileHash, err := hashFileByPath(chartPath)
+			if err != nil {
+				panic(err)
+			}
+			relative, err := pm.chartInfo.relativePath(m.songRootPath)
+			if err != nil {
+				panic(err)
+			}
+
+			s := song{fileHash, relative, pm.chartInfo.songName()}
+
+			err = m.dbAccessor.setSongScore(s, pm.chartInfo.track, pm.playStats.score)
+			if err != nil {
+				panic(err)
+			}
+
+			println("Finished song " + pm.chartInfo.songName() + " with score " + fmt.Sprintf("%d", pm.playStats.score))
+			m.onQuit()
+			return m, tea.Quit
+		}
+
+		m.playSongModel = pm
+
 		return m, cmd
 	}
 	return m, nil
@@ -140,6 +186,13 @@ func isForceQuitMsg(msg tea.Msg) bool {
 }
 
 func main() {
+	f, err := tea.LogToFile("debug.log", "debug")
+	if err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
 	p := tea.NewProgram(initialMainModel())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("error: %v", err)

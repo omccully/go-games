@@ -4,6 +4,7 @@ import "math"
 
 type playStats struct {
 	lastPlayedNoteIndex int
+	totalNotes          int
 	notesHit            int
 	noteStreak          int
 	rockMeter           float64 // 0.0 = failed, 1.0 = max
@@ -28,6 +29,10 @@ func (ps *playStats) missNote(noteSize int) {
 func (ps *playStats) overhitNote() {
 	ps.rockMeter -= rockMeterIncrement * float64(1)
 	ps.noteStreak = 0
+}
+
+func (ps playStats) finished() bool {
+	return ps.lastPlayedNoteIndex == ps.totalNotes-1
 }
 
 func (ps playStats) getMultiplier() int {

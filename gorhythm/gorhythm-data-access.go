@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -26,9 +25,25 @@ type grDbConnection struct {
 }
 
 type grDbAccessor interface {
-	getVerifiedSongScores() map[string]songScore
-	setSongScore(chartHash string, track string, score int) error
+	getVerifiedSongScores() (*map[string]songScore, error)
+	setSongScore(s song, track string, score int) error
 	close() error
+}
+
+type song struct {
+	ChartHash    string
+	RelativePath string
+	Name         string
+}
+
+type songScore struct {
+	song
+	TrackScores map[string]trackScore // the string is the track name
+}
+
+type trackScore struct {
+	Score       int
+	Fingerprint string // fingerprint to prevent cheating
 }
 
 func openDefaultDbConnection() (grDbConnection, error) {
@@ -128,14 +143,12 @@ func (conn grDbConnection) setSongScore(s song, track string, score int) error {
 	return err
 }
 
-func (conn grDbConnection) getVerifiedSongScores() (map[string]songScore, error) {
+func (conn grDbConnection) getVerifiedSongScores() (*map[string]songScore, error) {
 	rows, err := conn.db.Query("SELECT ChartHash,TrackName,Score,Fingerprint FROM TrackScores INNER JOIN Songs ON TrackScores.SongId = Songs.Id")
 	if err != nil {
 		panic(err)
 	}
 	defer rows.Close()
-	// cols, err := rows.Columns()
-	// println(cols)
 
 	if rows.Err() != nil {
 		panic(err)
@@ -171,27 +184,7 @@ func (conn grDbConnection) getVerifiedSongScores() (map[string]songScore, error)
 		}
 	}
 
-	return result, nil
-}
-
-type gameData struct {
-	SongScores map[string]songScore // the string is the sha256 hashed chart file
-}
-
-type song struct {
-	ChartHash    string
-	RelativePath string
-	Name         string
-}
-
-type songScore struct {
-	song
-	TrackScores map[string]trackScore // the string is the track name
-}
-
-type trackScore struct {
-	Score       int
-	Fingerprint string // fingerprint to prevent cheating
+	return &result, nil
 }
 
 func getGameDataFolder() (string, error) {
@@ -200,32 +193,6 @@ func getGameDataFolder() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, ".rhythmgame"), nil
-}
-
-func getGameDataFilePath() (string, error) {
-	dir, err := getGameDataFolder()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "rhythmgame.json"), nil
-}
-
-func getGameData() gameData {
-	filePath, err := getGameDataFilePath()
-	if err != nil {
-		return gameData{}
-	}
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return gameData{}
-	}
-
-	var gd gameData
-	err = json.Unmarshal(data, &gd)
-	if err != nil {
-		return gameData{}
-	}
-	return gd
 }
 
 func createDataFolderIfDoesntExist() error {
@@ -237,33 +204,24 @@ func createDataFolderIfDoesntExist() error {
 	return err
 }
 
-func saveGameData(gd gameData) error {
-	createDataFolderIfDoesntExist()
-
-	filePath, err := getGameDataFilePath()
+func hashFileByPath(filePath string) (string, error) {
+	file, err := os.Open(filePath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	data, err := json.Marshal(gd)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(filePath, data, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+	defer file.Close()
+
+	return hashFile(file)
 }
 
 func hashFile(file *os.File) (string, error) {
-	hasher := sha256.New()
 	h := sha256.New()
 	if _, err := io.Copy(h, file); err != nil {
 		return "", err
 	}
 
-	return hex.EncodeToString(hasher.Sum(nil)), nil
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func fingerprintScore(fileHashHex string, track string, score int) (string, error) {
@@ -286,6 +244,7 @@ func fingerprintScore(fileHashHex string, track string, score int) (string, erro
 
 	return hex.EncodeToString(scoreHash.Sum(nil)), nil
 }
+
 func verifyScore(fileHashHex string, track string, score int, expectedFingerprint string) (bool, error) {
 	fngr, err := fingerprintScore(fileHashHex, track, score)
 	if err != nil {
@@ -295,8 +254,8 @@ func verifyScore(fileHashHex string, track string, score int, expectedFingerprin
 	return fngr == expectedFingerprint, nil
 }
 
-func (gd *gameData) getVerifiedScore(fileHashHex string, track string) (int, error) {
-	ts := gd.SongScores[fileHashHex].TrackScores[track]
+func getVerifiedScore(gd *map[string]songScore, fileHashHex string, track string) (int, error) {
+	ts := (*gd)[fileHashHex].TrackScores[track]
 
 	fp, err := fingerprintScore(fileHashHex, track, ts.Score)
 	if err != nil {

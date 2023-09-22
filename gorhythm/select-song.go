@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,7 +17,8 @@ type selectSongModel struct {
 	selectedSongPath   string
 	selectedChart      *Chart
 	selectedTrack      string
-	gameData           *gameData
+	dbAccessor         grDbAccessor
+	songScores         *map[string]songScore
 }
 
 type songFolder struct {
@@ -26,6 +28,7 @@ type songFolder struct {
 	subFolders []*songFolder
 	isLeaf     bool
 	songCount  int
+	songScore  songScore
 }
 
 type pauseMenuItem struct {
@@ -35,22 +38,37 @@ type pauseMenuItem struct {
 func (i *songFolder) Title() string { return i.name }
 func (i *songFolder) Description() string {
 	if i.isLeaf {
-		return "song"
+		b := strings.Builder{}
+		first := true
+
+		if len(i.songScore.TrackScores) == 0 {
+			return "Never passed"
+		}
+
+		for k, v := range i.songScore.TrackScores {
+			if !first {
+				b.WriteString(", ")
+			}
+			b.WriteString(k)
+			b.WriteString(": ")
+			b.WriteString(strconv.Itoa(v.Score))
+			first = false
+		}
+		b.WriteRune(' ')
+		b.WriteString(i.songScore.ChartHash)
+		return b.String()
 	} else {
 		return strconv.Itoa(i.songCount) + " songs"
 	}
 }
 func (i *songFolder) FilterValue() string { return i.name }
 
-func initialSelectSongModel(gd *gameData) selectSongModel {
+func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor) selectSongModel {
 	model := selectSongModel{}
 
-	p := os.Getenv("GORHYTHM_SONGS_PATH")
-	if p == "" {
-		panic("GORHYTHM_SONGS_PATH not set")
-	}
-	model.rootSongFolder = loadSongFolder(p)
+	model.rootSongFolder = loadSongFolder(rootPath)
 	model.selectedSongFolder = model.rootSongFolder
+	initializeScores(model.selectedSongFolder, model.songScores)
 
 	listItems := []list.Item{}
 	for _, f := range model.rootSongFolder.subFolders {
@@ -65,7 +83,13 @@ func initialSelectSongModel(gd *gameData) selectSongModel {
 	pauseMenuList.SetShowHelp(false)
 	pauseMenuList.DisableQuitKeybindings()
 	model.menuList = pauseMenuList
-	model.gameData = gd
+	model.dbAccessor = dbAccessor
+
+	ss, err := dbAccessor.getVerifiedSongScores()
+	if err != nil {
+		panic(err)
+	}
+	model.songScores = ss
 
 	return model
 }
@@ -93,7 +117,7 @@ func populateSongFolder(fldr *songFolder) {
 	for _, f := range files {
 		if f.IsDir() {
 			child := &songFolder{f.Name(), filepath.Join(fldr.path, f.Name()),
-				fldr, []*songFolder{}, false, 0}
+				fldr, []*songFolder{}, false, 0, songScore{}}
 			fldr.subFolders = append(fldr.subFolders, child)
 			populateSongFolder(child)
 		} else {
@@ -122,6 +146,32 @@ func incrementSongCount(fldr *songFolder) {
 	}
 }
 
+func fileExists(path string) bool {
+	d, err := os.Stat(path)
+	if err != nil && os.IsNotExist(err) {
+		return false
+	}
+	return !d.IsDir()
+}
+
+func initializeScores(flder *songFolder, ss *map[string]songScore) {
+	for _, f := range flder.subFolders {
+		if f.isLeaf {
+			chartPath := filepath.Join(f.path, "notes.chart")
+			if !fileExists(chartPath) {
+				continue
+			}
+
+			ch, err := hashFileByPath(chartPath)
+			if err != nil && err != os.ErrNotExist {
+				panic(err)
+			}
+
+			f.songScore = (*ss)[ch]
+		}
+	}
+}
+
 func (m selectSongModel) Init() tea.Cmd {
 	return nil
 }
@@ -145,6 +195,7 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.menuList.SetItems(listItems)
 					m.menuList.Title = i.name
 					m.selectedSongFolder = i
+					initializeScores(i, m.songScores)
 				}
 			}
 		case "backspace":
