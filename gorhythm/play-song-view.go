@@ -33,6 +33,7 @@ func (m playSongModel) View() string {
 	// songInfoLineIndex := strumLineIndex - 6
 
 	for i, line := range m.viewModel.NoteLine {
+		r.WriteString(" | ")
 		for noteType, isNote := range line.NoteColors {
 			if i == strumLineIndex {
 				r.WriteRune('-')
@@ -60,31 +61,8 @@ func (m playSongModel) View() string {
 				r.WriteRune(' ')
 			}
 		}
-		//r.WriteString("\t\t\t")
-		//r.WriteString(strconv.Itoa(line.DisplayTimeMs))
 
-		// if i == songInfoLineIndex {
-		// 	r.WriteString("\t\t")
-		// 	r.WriteString(m.chartInfo.folderName)
-		// }
-		// if i == songInfoLineIndex+1 {
-		// 	r.WriteString("\t\tTrack: ")
-		// 	r.WriteString(m.chartInfo.track)
-		// }
-		// if i == songInfoLineIndex+2 {
-		// 	r.WriteString("\t\tNote streak: ")
-		// 	r.WriteString(strconv.Itoa(m.playStats.noteStreak))
-		// }
-		// if i == songInfoLineIndex+3 {
-		// 	r.WriteString("\t\tNotes hit: ")
-		// 	r.WriteString(strconv.Itoa(m.playStats.notesHit))
-		// 	r.WriteString("/" + strconv.Itoa(m.playStats.lastPlayedNoteIndex+1))
-		// }
-		// if i == songInfoLineIndex+4 {
-		// 	r.WriteString("\t\t: ")
-		// 	r.WriteString(strconv.Itoa(m.currentStrumTimeMs()))
-		// }
-
+		r.WriteString(" | ")
 		r.WriteRune('\n')
 	}
 
@@ -92,7 +70,7 @@ func (m playSongModel) View() string {
 
 	scoreAndMultiplier.WriteString("Score: " + strconv.Itoa(m.playStats.score) + "\n")
 	multiplier := m.playStats.getMultiplier()
-	scoreAndMultiplier.WriteString("Multiplier: x" + multiplierStyles[multiplier-1].Render(strconv.Itoa(multiplier)) + "\n")
+	scoreAndMultiplier.WriteString("Multiplier: x" + multiplierStyles[multiplier-1].Render(strconv.Itoa(multiplier)) + "            \n")
 
 	rockMeter := strings.Builder{}
 
@@ -103,9 +81,11 @@ func (m playSongModel) View() string {
 	prog.Width = 15
 	prog.ShowPercentage = false
 
-	rockMeter.WriteString(prog.ViewAs(m.playStats.rockMeter) + "\t\t\n")
+	rockMeter.WriteString("\t\t")
+	rockMeter.WriteString(prog.ViewAs(m.playStats.rockMeter))
+	rockMeter.WriteRune('\n')
 
-	return lipgloss.JoinHorizontal(0.7, scoreAndMultiplier.String(), r.String(), "\t\t", rockMeter.String())
+	return lipgloss.JoinHorizontal(0.8, scoreAndMultiplier.String(), r.String(), rockMeter.String())
 }
 
 type color struct {
