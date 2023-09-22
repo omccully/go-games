@@ -31,12 +31,6 @@ type playSongModel struct {
 	soundEffects soundEffects
 }
 
-type playStats struct {
-	lastPlayedNoteIndex int
-	notesHit            int
-	noteStreak          int
-}
-
 type NoteColors [5]bool
 
 type NoteLine struct {
@@ -166,7 +160,7 @@ func createModelFromChart(chart *Chart, trackName string, stngs settings) playSo
 
 	return playSongModel{chart, chartInfo{}, playableNotes, startTime, 0,
 		stngs,
-		playStats{-1, 0, 0},
+		playStats{-1, 0, 0, 0.5, 0},
 		0, viewModel{}, songSounds{}, soundEffects{}}
 }
 
@@ -248,7 +242,7 @@ func (m playSongModel) ProcessNoNotePlayed(strumTimeMs int) playSongModel {
 		if note.TimeStamp < minTime {
 			// missed a previous note
 			m.playStats.lastPlayedNoteIndex = i
-			m.playStats.noteStreak = 0
+			m.playStats.missNote(1)
 			m.muteGuitar()
 			continue
 		}
@@ -275,9 +269,10 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 		if note.TimeStamp < minTime {
 			// missed a previous note
 			m.playStats.lastPlayedNoteIndex = i
-			m.playStats.noteStreak = 0
-			// continue to check next note
+			m.playStats.missNote(1)
 			m.muteGuitar()
+
+			// continue to check next note
 			continue
 		}
 
@@ -285,7 +280,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			// overstrum. no notes around
 			m.viewModel.noteStates[colorIndex].overHit = true
 			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
-			m.playStats.noteStreak = 0
+			m.playStats.overhitNote()
 			m.muteGuitar()
 
 			if m.soundEffects.initialized {
@@ -311,8 +306,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 		if len(chord) == 1 {
 			if note.NoteType == colorIndex {
 				m.realTimeNotes[i].played = true
-				m.playStats.notesHit++
-				m.playStats.noteStreak++
+				m.playStats.hitNote(1)
 				m.viewModel.noteStates[colorIndex].playedCorrectly = true
 				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
 				m.unmuteGuitar()
@@ -326,7 +320,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				if m.soundEffects.initialized {
 					speaker.Play(m.soundEffects.wrongNote.soundStream)
 				}
-				m.playStats.noteStreak = 0
+				m.playStats.overhitNote()
 				break
 			}
 		} else {
@@ -335,7 +329,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				if chordNote.NoteType == colorIndex {
 					if m.viewModel.noteStates[colorIndex].lastCorrectlyPlayedChordNoteTimeMs == chordNote.TimeStamp {
 						// already played!!
-						m.playStats.noteStreak = 0
+						m.playStats.overhitNote()
 						allChordNotesPlayed = false
 						for _, chordNote2 := range chord {
 							// decrement all times for chord notes because they were all played incorrectly
@@ -353,8 +347,8 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			if allChordNotesPlayed {
 
 				// can't decide if I want to count chords as 1 note or multiple
-				m.playStats.notesHit += len(chord)
-				m.playStats.noteStreak += len(chord)
+				m.playStats.hitNote(len(chord))
+
 				for ci, chordNote := range chord {
 					m.viewModel.noteStates[chordNote.NoteType].playedCorrectly = true
 					m.viewModel.noteStates[chordNote.NoteType].lastPlayedMs = strumTimeMs
@@ -391,6 +385,10 @@ func (m playSongModel) unmuteGuitar() {
 }
 
 func (m playSongModel) setGuitarSilent(silent bool) {
+	if m.songSounds.guitarVolume == nil {
+		// for unit tests to work
+		return
+	}
 	speaker.Lock()
 	m.songSounds.guitarVolume.Silent = silent
 	speaker.Unlock()
