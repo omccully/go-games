@@ -362,3 +362,31 @@ func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreak(t *testing.T) 
 		t.Error("Expected notesHit to be 0, got", model.playStats.notesHit)
 	}
 }
+
+func TestColorGradient(t *testing.T) {
+	red := color{r: 255, g: 0, b: 0}
+	green := color{r: 0, g: 255, b: 0}
+	result := getColorForGradient(red, green, 0.00)
+	if result != red {
+		t.Error("Expected red, got", result)
+	}
+
+	hex := result.Hex()
+	if hex != "#ff0000" {
+		t.Error("Expected #ff0000, got", hex)
+	}
+}
+
+func TestColorGradient100(t *testing.T) {
+	red := color{r: 255, g: 0, b: 0}
+	green := color{r: 0, g: 255, b: 0}
+	result := getColorForGradient(red, green, 1.00)
+	if result != green {
+		t.Error("Expected green, got", result)
+	}
+
+	hex := result.Hex()
+	if hex != "#00ff00" {
+		t.Error("Expected #00ff00, got", hex)
+	}
+}

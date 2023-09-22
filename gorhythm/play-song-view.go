@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -94,11 +95,37 @@ func (m playSongModel) View() string {
 	scoreAndMultiplier.WriteString("Multiplier: x" + multiplierStyles[multiplier-1].Render(strconv.Itoa(multiplier)) + "\n")
 
 	rockMeter := strings.Builder{}
-	prog := progress.New(progress.WithScaledGradient("#FF0000", "#00FF00"))
+
+	red := color{r: 255, g: 0, b: 0}
+	green := color{r: 0, g: 255, b: 0}
+	rockMeterColor := getColorForGradient(red, green, m.playStats.rockMeter)
+	prog := progress.New(progress.WithSolidFill("#" + rockMeterColor.Hex()))
 	prog.Width = 15
 	prog.ShowPercentage = false
 
-	rockMeter.WriteString(prog.ViewAs(m.playStats.rockMeter) + "\t\t")
+	rockMeter.WriteString(prog.ViewAs(m.playStats.rockMeter) + "\t\t\n")
 
-	return lipgloss.JoinHorizontal(0.5, scoreAndMultiplier.String(), r.String(), "\t\t", rockMeter.String())
+	return lipgloss.JoinHorizontal(0.7, scoreAndMultiplier.String(), r.String(), "\t\t", rockMeter.String())
+}
+
+type color struct {
+	r, g, b uint8
+}
+
+func (c color) Hex() string {
+	return fmt.Sprintf("%02x", c.r) + fmt.Sprintf("%02x", c.g) + fmt.Sprintf("%02x", c.b)
+}
+
+func getColorForGradient(a color, b color, percentage float64) color {
+	if percentage < 0.00 {
+		percentage = 0
+	} else if percentage > 1.0 {
+		percentage = 1.0
+	}
+
+	newR := uint8(float64(a.r) + (float64(b.r)-float64(a.r))*percentage)
+	newG := uint8(float64(a.g) + (float64(b.g)-float64(a.g))*percentage)
+	newB := uint8(float64(a.b) + (float64(b.b)-float64(a.b))*percentage)
+
+	return color{newR, newG, newB}
 }
