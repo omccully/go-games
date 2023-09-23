@@ -184,18 +184,9 @@ func TestFileHash(t *testing.T) {
 	if fileHash != expected {
 		t.Errorf("File hash is %s, expected %s", fileHash, expected)
 	}
-
-	//fp1 := `C:\Users\omccu\GoRhythm\Guitar Hero III\DLC\Dropkick Murphys - Johnny, I Hardly Knew Ya\notes.chart`
-	fp1 := `C:\Users\omccu\GoRhythm\Guitar Hero III\DLC\Dropkick Murphys - Famous for Nothing\notes.chart`
-	fh2, _ := hashFileByPath(fp1)
-	println("fh " + fh2)
-	if fh2 == cultOfPersonalitySong().ChartHash {
-		t.Errorf("File hash is %s, expected not %s", fh2, cultOfPersonalitySong().ChartHash)
-	}
 }
 
 func TestFileHashesAreUnique(t *testing.T) {
-
 	filePaths := []string{
 		"sample-songs/cult-of-personality.chart",
 		"sample-songs/cliffs-of-dover.chart",
@@ -210,7 +201,7 @@ func TestFileHashesAreUnique(t *testing.T) {
 			t.Error(err)
 		}
 
-		println(fp + " File hash: " + fileHash)
+		// println(fp + " File hash: " + fileHash)
 
 		if fileHashes[fileHash] {
 			t.Errorf("File hash %s is not unique", fileHash)

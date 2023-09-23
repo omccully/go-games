@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-func openCultOfPersonalityChart(t *testing.T) *Chart {
-	file, err := os.Open("sample-songs/cult-of-personality.chart")
+func openSampleChart(chartPath string, t *testing.T) *Chart {
+	file, err := os.Open(chartPath)
 	if err != nil {
 		t.Error(err)
 	}
@@ -20,6 +20,18 @@ func openCultOfPersonalityChart(t *testing.T) *Chart {
 		t.Error(err)
 	}
 	return chart
+}
+
+func openTtfafChart(t *testing.T) *Chart {
+	return openSampleChart("sample-songs/ttfaf.chart", t)
+}
+
+func openCultOfPersonalityChart(t *testing.T) *Chart {
+	return openSampleChart("sample-songs/cult-of-personality.chart", t)
+}
+
+func openPrayerOfTheRefugeeChart(t *testing.T) *Chart {
+	return openSampleChart("sample-songs/prayer-of-the-refugee.chart", t)
 }
 
 func countNotesOfColor(vm viewModel, color int) int {
@@ -93,15 +105,8 @@ func TestViewFirstNotes(t *testing.T) {
 func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
-	model.settings.lineTime = 30 * time.Millisecond
-	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
 	strumLineTime := 9600
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
-	strumLineIndex := model.getStrumLineIndex()
-	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model = initializeModelToStrumLineTime(model, strumLineTime)
 
 	model.playStats.noteStreak = 10
 
@@ -124,15 +129,9 @@ func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
-	model.settings.lineTime = 30 * time.Millisecond
-	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
 	strumLineTime := 10050
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
-	strumLineIndex := model.getStrumLineIndex()
-	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
 	model.playStats.noteStreak = 10
 
 	if model.realTimeNotes[0].played {
@@ -176,15 +175,9 @@ func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 func TestHitNote_ThenDidntPlayNextNote_ResetsStreakWhenNoteIsOutsideOfWindow(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
-	model.settings.lineTime = 30 * time.Millisecond
-	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
 	strumLineTime := 10050
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
-	strumLineIndex := model.getStrumLineIndex()
-	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
 	model.playStats.noteStreak = 10
 	model = model.PlayNote(0, strumLineTime)
 
@@ -208,15 +201,9 @@ func TestHitNote_ThenDidntPlayNextNote_ResetsStreakWhenNoteIsOutsideOfWindow(t *
 func TestDoubleStrumSameNote_ResetsNoteStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
-	model.settings.lineTime = 30 * time.Millisecond
-	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
 	strumLineTime := 10050
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
-	strumLineIndex := model.getStrumLineIndex()
-	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
 	model.playStats.noteStreak = 10
 	model = model.PlayNote(0, strumLineTime)
 	model = model.PlayNote(0, strumLineTime+10)
@@ -229,15 +216,9 @@ func TestDoubleStrumSameNote_ResetsNoteStreak(t *testing.T) {
 func TestStrumWrongNote_ThenCorrectNote_AllowsPlayingCorrectNote(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
-	model.settings.lineTime = 30 * time.Millisecond
-	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
 	strumLineTime := 10050
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
-	strumLineIndex := model.getStrumLineIndex()
-	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
 	model.playStats.noteStreak = 10
 	model = model.PlayNote(3, strumLineTime)
 	model = model.PlayNote(0, strumLineTime+10)
@@ -246,18 +227,58 @@ func TestStrumWrongNote_ThenCorrectNote_AllowsPlayingCorrectNote(t *testing.T) {
 	}
 }
 
-func TestPlayChordNote_OutOfChartOrder_DoesNotResetStreak(t *testing.T) {
-	chart := openCultOfPersonalityChart(t)
+func TestSkipNote(t *testing.T) {
+	chart := openTtfafChart(t)
 	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	strumLineTime := 2430
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
+	// skip red and play green
+	model = model.PlayNote(0, strumLineTime)
+
+	if model.realTimeNotes[0].played {
+		t.Error("Expected first note to not be marked as played, got", model.realTimeNotes[0].played)
+	}
+
+	if !model.realTimeNotes[1].played {
+		t.Error("Expected second note to be marked as played, got", model.realTimeNotes[1].played)
+	}
+
+	if model.playStats.notesHit != 1 {
+		t.Error("Expected notesHit to be 1, got", model.playStats.notesHit)
+	}
+}
+
+func initializeModelToStrumLineTime(model playSongModel, strumLineTime int) playSongModel {
+	// lineTime and fretBoardHeight don't really affect the note playing tests
 	model.settings.lineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
-	strumLineTime := 27750
 	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
 	strumLineIndex := model.getStrumLineIndex()
 	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	return model
+}
+
+func TestPlayChordNoteAtBeginningOfSong(t *testing.T) {
+	chart := openPrayerOfTheRefugeeChart(t)
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	strumLineTime := 3270
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
+	// YO chord
+	model = model.PlayNote(4, strumLineTime)
+	model = model.PlayNote(2, strumLineTime)
+
+	if model.playStats.notesHit != 2 {
+		t.Error("Expected notesHit to be 2, got", model.playStats.notesHit)
+	}
+}
+
+func TestPlayChordNote_OutOfChartOrder_DoesNotResetStreak(t *testing.T) {
+	chart := openCultOfPersonalityChart(t)
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	strumLineTime := 27750
+	model = initializeModelToStrumLineTime(model, strumLineTime)
 
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
@@ -276,15 +297,8 @@ func TestPlayChordNote_OutOfChartOrder_DoesNotResetStreak(t *testing.T) {
 func TestPlayChordNoteWrongByDoubletappingFirstNote_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
-	model.settings.lineTime = 30 * time.Millisecond
-	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
 	strumLineTime := 27750
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
-	strumLineIndex := model.getStrumLineIndex()
-	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model = initializeModelToStrumLineTime(model, strumLineTime)
 
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
@@ -304,15 +318,8 @@ func TestPlayChordNoteWrongByDoubletappingFirstNote_ResetsStreak(t *testing.T) {
 func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
-	model.settings.lineTime = 30 * time.Millisecond
-	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
 	strumLineTime := 27750
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
-	strumLineIndex := model.getStrumLineIndex()
-	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model = initializeModelToStrumLineTime(model, strumLineTime)
 
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
@@ -335,15 +342,8 @@ func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
 func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
-	model.settings.lineTime = 30 * time.Millisecond
-	model.settings.fretBoardHeight = 30
-
-	// I want these tests to be based around the strum line
-	// rather than current time
 	strumLineTime := 27750
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
-	strumLineIndex := model.getStrumLineIndex()
-	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
+	model = initializeModelToStrumLineTime(model, strumLineTime)
 
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
