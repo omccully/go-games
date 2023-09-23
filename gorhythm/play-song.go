@@ -228,34 +228,7 @@ func (m playSongModel) UpdateViewModel() playSongModel {
 
 // should be periodically called to process missed notes
 func (m playSongModel) ProcessNoNotePlayed(strumTimeMs int) playSongModel {
-	strumToleranceMs := int(m.settings.strumTolerance / time.Millisecond)
-	minTime := strumTimeMs - strumToleranceMs
-	maxTime := strumTimeMs + strumToleranceMs
-	for i := m.playStats.lastPlayedNoteIndex + 1; i < len(m.realTimeNotes); i++ {
-		note := m.realTimeNotes[i]
-		if note.TimeStamp > maxTime {
-			break
-		}
-
-		// only update lastPlayedNoteIndex if it's before the minTime strum tolerance
-		if note.TimeStamp < minTime {
-			// missed a previous note
-			m.playStats.lastPlayedNoteIndex = i
-			m.playStats.missNote(1)
-			m.muteGuitar()
-			continue
-		}
-	}
-
-	for i, v := range m.viewModel.noteStates {
-		rem := strumTimeMs - litDurationMs
-		if v.lastPlayedMs < rem {
-			m.viewModel.noteStates[i].overHit = false
-			m.viewModel.noteStates[i].playedCorrectly = false
-		}
-	}
-
-	return m
+	return m.PlayNote(-1, strumTimeMs)
 }
 
 // should be called when a note is played (ex: keyboard button pressed)
@@ -275,8 +248,15 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			continue
 		}
 
+		if colorIndex == -1 {
+			// no note was played, just finished checking for missed notes
+			break
+		}
+
 		if note.TimeStamp > maxTime {
-			// overstrum. no notes around
+			// no more notes to check
+			// overstrum or played wrong note
+
 			m.viewModel.noteStates[colorIndex].overHit = true
 			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
 			m.playStats.overhitNote()
@@ -293,17 +273,13 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 		}
 
 		// must check for chords
-		chord := []playableNote{note}
-		for j := i + 1; j < len(m.realTimeNotes); j++ {
-			if m.realTimeNotes[j].TimeStamp == note.TimeStamp {
-				chord = append(chord, m.realTimeNotes[j])
-			} else {
-				break
-			}
-		}
+		chord := getNextNoteOrChord(m.realTimeNotes, i)
 
 		if len(chord) == 1 {
+			// gotta be careful with chords when looping forward too
+
 			if note.NoteType == colorIndex {
+				// handle correct single note played
 				m.realTimeNotes[i].played = true
 				m.playStats.hitNote(1)
 				m.viewModel.noteStates[colorIndex].playedCorrectly = true
@@ -311,17 +287,10 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				m.unmuteGuitar()
 				m.playStats.lastPlayedNoteIndex = i
 				break
-			} else {
-				// played wrong note
-				m.viewModel.noteStates[colorIndex].overHit = true
-				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
-				m.muteGuitar()
-				if m.soundEffects.initialized {
-					speaker.Play(m.soundEffects.wrongNote.soundStream)
-				}
-				m.playStats.overhitNote()
-				break
 			}
+			// wrong notes are handled in a future iteration
+			// when we discover that there are no matching notes
+			// within the timing window
 		} else {
 			allChordNotesPlayed := true
 			for _, chordNote := range chord {
@@ -364,15 +333,33 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 
 	}
 
-	for i, v := range m.viewModel.noteStates {
-		rem := strumTimeMs - litDurationMs
-		if v.lastPlayedMs < rem {
-			m.viewModel.noteStates[i].overHit = false
-			m.viewModel.noteStates[i].playedCorrectly = false
-		}
-	}
+	m.viewModel = refreshNoteStates(m.viewModel, strumTimeMs)
 
 	return m
+}
+
+func refreshNoteStates(vm viewModel, strumTimeMs int) viewModel {
+	for i, v := range vm.noteStates {
+		rem := strumTimeMs - litDurationMs
+		if v.lastPlayedMs < rem {
+			vm.noteStates[i].overHit = false
+			vm.noteStates[i].playedCorrectly = false
+		}
+	}
+	return vm
+}
+
+func getNextNoteOrChord(notes []playableNote, startIndex int) []playableNote {
+	note := notes[startIndex]
+	chord := []playableNote{note}
+	for i := startIndex + 1; i < len(notes); i++ {
+		if notes[i].TimeStamp == note.TimeStamp {
+			chord = append(chord, notes[i])
+		} else {
+			break
+		}
+	}
+	return chord
 }
 
 func (m playSongModel) muteGuitar() {
