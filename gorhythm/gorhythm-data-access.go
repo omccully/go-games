@@ -103,44 +103,76 @@ func (conn grDbConnection) close() error {
 	return conn.db.Close()
 }
 
-func (conn grDbConnection) setSongScore(s song, track string, score int) error {
-	// add song to db if doesnt't exist
-
+func (conn grDbConnection) addSongIfDoesntExist(s song) (int, error) {
 	row := conn.db.QueryRow("SELECT Id FROM Songs WHERE ChartHash=?", s.ChartHash)
 	if row.Err() != nil {
-		return row.Err()
+		return 0, row.Err()
 	}
 	var songId int
 	err := row.Scan(&songId)
 	if err != nil && err != sql.ErrNoRows {
-		return err
+		return 0, err
 	}
 	if songId == 0 {
 		// add song to db
 		res, err := conn.db.Exec("INSERT INTO Songs (ChartHash,Name,RelativePath) VALUES (?, ?, ?)",
 			s.ChartHash, s.Name, s.RelativePath)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		insertId, err := res.LastInsertId()
 		if err != nil {
-			return err
+			return 0, err
 		}
 		songId = int(insertId)
 	}
+	return songId, nil
+}
 
-	fingerprint, err := fingerprintScore(s.ChartHash, track, score)
+func (conn grDbConnection) setSongScore(s song, track string, newScore int) error {
+	songId, err := conn.addSongIfDoesntExist(s)
 	if err != nil {
 		return err
 	}
-	// _, err = conn.db.Exec("INSERT OR IGNORE INTO TrackScores (SongId, TrackName, Score, Fingerprint) VALUES (?, ?, ?, ?) UPDATE TrackScores SET Score=?, Fingerprint=? WHERE SongId=? AND TrackName=?",
-	// 	s.ChartHash, track, score, fingerprint,
-	// 	s.ChartHash, track, score, fingerprint)
 
-	_, err = conn.db.Exec("INSERT INTO TrackScores (SongId, TrackName, Score, Fingerprint) VALUES (?, ?, ?, ?)",
-		songId, track, score, fingerprint)
+	ts, err := conn.getTrackScore(songId, track)
+	if err != nil {
+		return err
+	}
+
+	if newScore <= ts {
+		// don't update if the new score is lower than the old score
+		return nil
+	}
+
+	fingerprint, err := fingerprintScore(s.ChartHash, track, newScore)
+	if err != nil {
+		return err
+	}
+
+	if ts == 0 {
+		_, err = conn.db.Exec("INSERT INTO TrackScores (SongId, TrackName, Score, Fingerprint) VALUES (?, ?, ?, ?)",
+			songId, track, newScore, fingerprint)
+	} else {
+		_, err = conn.db.Exec("UPDATE TrackScores SET Score=?, Fingerprint=? WHERE SongId=? AND TrackName=?",
+			newScore, fingerprint, songId, track)
+	}
+
 	return err
+}
+
+func (conn grDbConnection) getTrackScore(songId int, trackName string) (int, error) {
+	row := conn.db.QueryRow("SELECT Score FROM TrackScores WHERE SongId=? AND TrackName=?", songId, trackName)
+	if row.Err() != nil {
+		return 0, row.Err()
+	}
+	var score int
+	err := row.Scan(&score)
+	if err != nil && err != sql.ErrNoRows {
+		return 0, err
+	}
+	return score, nil
 }
 
 func (conn grDbConnection) getVerifiedSongScores() (*map[string]songScore, error) {

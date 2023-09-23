@@ -6,21 +6,62 @@ import (
 	"testing"
 )
 
-const (
-	cultOfPersonalityChartHash = "b9e7ce0974011f3e41b754b6f0a2f0cf9e7c7e47c67e1d45226d4fca1a7f955d"
-)
+func cultOfPersonalitySong() song {
+	return song{
+		"b9e7ce0974011f3e41b754b6f0a2f0cf9e7c7e47c67e1d45226d4fca1a7f955d",
+		`Guitar Hero III\Quickplay\Living Colour - Cult Of Personality`,
+		"Living Colour - Cult Of Personality"}
+}
+
+type testDb struct {
+	dbFolderPath string
+	dbFilePath   string
+	grDbConnection
+}
+
+func (tDb testDb) destroy(t *testing.T) {
+	err := tDb.db.Close()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = os.Remove(tDb.dbFilePath)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = os.Remove(tDb.dbFolderPath)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func openTestDb() (testDb, error) {
+	dname, err := os.MkdirTemp("", "GoRhythmTests")
+	if err != nil {
+		return testDb{}, err
+	}
+	dbFilePath := filepath.Join(dname, "rhythmgame.db")
+	db, err := openDbConnection(dbFilePath)
+	return testDb{dname, dbFilePath, db}, err
+}
+
+func openAndMigrateTestDb() (testDb, error) {
+	db, err := openTestDb()
+	if err != nil {
+		return db, err
+	}
+
+	_, err = db.migrateDatabase()
+	return db, err
+}
 
 func TestMigrateDatabase(t *testing.T) {
-	dname, err := os.MkdirTemp("", "GoRhythmTests")
-	dbFilePath := filepath.Join(dname, "rhythmgame.db")
-	db, _ := openDbConnection(dbFilePath)
-	defer db.close()
-	defer os.Remove(dbFilePath)
-	defer os.Remove(dname)
-
-	if db.db == nil {
-		t.Error("Database is nil")
+	db, err := openTestDb()
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer db.destroy(t)
 
 	count, err := db.migrateDatabase()
 
@@ -43,25 +84,14 @@ func TestMigrateDatabase(t *testing.T) {
 }
 
 func TestSetSongScore(t *testing.T) {
-	dname, _ := os.MkdirTemp("", "GoRhythmTests")
-	dbFilePath := filepath.Join(dname, "rhythmgame.db")
-	println(dbFilePath)
-	db, _ := openDbConnection(dbFilePath)
-	defer db.close()
-	//defer os.Remove(dbFilePath)
-	//defer os.Remove(dname)
-
-	if db.db == nil {
-		t.Error("Database is nil")
+	db, err := openAndMigrateTestDb()
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer db.destroy(t)
 
-	db.migrateDatabase()
-
-	err := db.setSongScore(song{
-		cultOfPersonalityChartHash,
-		`Guitar Hero III\Quickplay\Living Colour - Cult Of Personality`,
-		"Living Colour - Cult Of Personality",
-	}, "MediumSingle", 113210)
+	expectedScore := 113210
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore)
 
 	if err != nil {
 		t.Fatal(err)
@@ -73,9 +103,73 @@ func TestSetSongScore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actualScore := (*verifiedScore)[cultOfPersonalityChartHash].TrackScores["MediumSingle"].Score
-	if actualScore != 113210 {
-		t.Errorf("Verified score is %d, expected %d", actualScore, 113210)
+	actualScore := (*verifiedScore)[cultOfPersonalitySong().ChartHash].TrackScores["MediumSingle"].Score
+	if actualScore != expectedScore {
+		t.Errorf("Verified score is %d, expected %d", actualScore, expectedScore)
+	}
+}
+
+func TestSetLowerScore_DoesNotChangeScore(t *testing.T) {
+	db, err := openAndMigrateTestDb()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.destroy(t)
+
+	expectedScore := 113210
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lowerScore := 100000
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", lowerScore)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifiedScore, err := db.getVerifiedSongScores()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	actualScore := (*verifiedScore)[cultOfPersonalitySong().ChartHash].TrackScores["MediumSingle"].Score
+	if actualScore != expectedScore {
+		t.Errorf("Verified score is %d, expected %d", actualScore, expectedScore)
+	}
+}
+
+func TestSetHigherScore_ChangesScore(t *testing.T) {
+	db, err := openAndMigrateTestDb()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.destroy(t)
+
+	lowerScore := 100000
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", lowerScore)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedScore := 113210
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifiedScore, err := db.getVerifiedSongScores()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	actualScore := (*verifiedScore)[cultOfPersonalitySong().ChartHash].TrackScores["MediumSingle"].Score
+	if actualScore != expectedScore {
+		t.Errorf("Verified score is %d, expected %d", actualScore, expectedScore)
 	}
 }
 
@@ -86,7 +180,7 @@ func TestFileHash(t *testing.T) {
 		t.Error(err)
 	}
 
-	expected := cultOfPersonalityChartHash
+	expected := cultOfPersonalitySong().ChartHash
 	if fileHash != expected {
 		t.Errorf("File hash is %s, expected %s", fileHash, expected)
 	}
@@ -95,8 +189,8 @@ func TestFileHash(t *testing.T) {
 	fp1 := `C:\Users\omccu\GoRhythm\Guitar Hero III\DLC\Dropkick Murphys - Famous for Nothing\notes.chart`
 	fh2, _ := hashFileByPath(fp1)
 	println("fh " + fh2)
-	if fh2 == cultOfPersonalityChartHash {
-		t.Errorf("File hash is %s, expected not %s", fh2, cultOfPersonalityChartHash)
+	if fh2 == cultOfPersonalitySong().ChartHash {
+		t.Errorf("File hash is %s, expected not %s", fh2, cultOfPersonalitySong().ChartHash)
 	}
 }
 
