@@ -159,7 +159,7 @@ func createModelFromChart(chart *Chart, trackName string, stngs settings) playSo
 
 	return playSongModel{chart, chartInfo{}, playableNotes, startTime, 0,
 		stngs,
-		playStats{-1, len(playableNotes), 0, 0, 0.5, 0},
+		playStats{-1, len(playableNotes), 0, 0, 0.5, 0, false},
 		0, viewModel{}, songSounds{}, soundEffects{}}
 }
 

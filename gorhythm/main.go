@@ -133,8 +133,11 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case playSong:
 		playModel, cmd := m.playSongModel.Update(msg)
 		pm := playModel.(playSongModel)
-
-		if pm.playStats.finished() {
+		if pm.playStats.failed {
+			println("Failed song " + pm.chartInfo.songName())
+			m.onQuit()
+			return m, tea.Quit
+		} else if pm.playStats.finished() {
 			chartPath := filepath.Join(pm.chartInfo.fullFolderPath, "notes.chart")
 			fileHash, err := hashFileByPath(chartPath)
 			if err != nil {
