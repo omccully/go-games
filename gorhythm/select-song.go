@@ -54,8 +54,7 @@ func (i *songFolder) Description() string {
 			b.WriteString(strconv.Itoa(v.Score))
 			first = false
 		}
-		b.WriteRune(' ')
-		b.WriteString(i.songScore.ChartHash)
+
 		return b.String()
 	} else {
 		return strconv.Itoa(i.songCount) + " songs"

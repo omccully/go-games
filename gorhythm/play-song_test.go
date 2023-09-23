@@ -363,6 +363,45 @@ func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreak(t *testing.T) 
 	}
 }
 
+func TestPlayWrongNoteEntirelyForChord_ResetsStreak(t *testing.T) {
+	chart := openCultOfPersonalityChart(t)
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	strumLineTime := 27750
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
+	// to move the lastPlayedNoteIndex to the note before the chord
+	model = model.ProcessNoNotePlayed(strumLineTime - 300)
+
+	model.playStats.noteStreak = 10
+
+	model = model.PlayNote(0, strumLineTime)
+
+	if model.playStats.noteStreak != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	}
+}
+
+func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
+	chart := openTtfafChart(t)
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	strumLineTime := 49230
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
+	model = model.ProcessNoNotePlayed(strumLineTime)
+
+	// skip YO chord
+	yoChord := getNextNoteOrChord(model.realTimeNotes, model.playStats.lastPlayedNoteIndex+1)
+	if yoChord[0].NoteType != 2 || yoChord[1].NoteType != 4 {
+		t.Error("Expected YO chord, got", yoChord)
+	}
+
+	model = model.PlayNote(ncRed, strumLineTime)
+
+	if model.playStats.notesHit != 1 {
+		t.Error("Expected notesHit to be 1, got", model.playStats.notesHit)
+	}
+}
+
 func TestColorGradient(t *testing.T) {
 	red := color{r: 255, g: 0, b: 0}
 	green := color{r: 0, g: 255, b: 0}

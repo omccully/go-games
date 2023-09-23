@@ -63,6 +63,7 @@ func (m playSongModel) View() string {
 		}
 
 		r.WriteString(" | ")
+		r.WriteString(strconv.Itoa(line.DisplayTimeMs))
 		r.WriteRune('\n')
 	}
 

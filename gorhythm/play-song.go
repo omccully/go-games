@@ -31,6 +31,14 @@ type playSongModel struct {
 	soundEffects soundEffects
 }
 
+const (
+	ncGreen = 0 << iota
+	ncRed
+	ncYellow
+	ncBlue
+	ncOrange
+)
+
 type NoteColors [5]bool
 
 type NoteLine struct {
