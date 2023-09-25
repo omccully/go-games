@@ -1,15 +1,10 @@
 package main
 
 import (
-	"errors"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/faiface/beep/effects"
+	"github.com/charmbracelet/log"
 	"github.com/faiface/beep/speaker"
 )
 
@@ -29,6 +24,7 @@ type playSongModel struct {
 
 	songSounds   songSounds
 	soundEffects soundEffects
+	startedMusic bool
 }
 
 const (
@@ -66,88 +62,14 @@ type playableNote struct {
 	Note
 }
 
-func convertMidi(midiFilePath string) (string, error) {
-	p := os.Getenv("GORHYTHM_MID2CHART_JARPATH")
-	if p == "" {
-		panic("Selected a song with only a notes.mid file and no notes.chart, and GORHYTHM_MID2CHART_JARPATH is not set to convert it.")
-	}
+func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
+	model := createModelFromChart(lm.chart.chart, "ExpertSingle", stngs)
+	model.chartInfo.fullFolderPath = lm.chartFolderPath
+	model.chartInfo.track = "ExpertSingle"
 
-	cmd := exec.Command("java", "-jar", p, midiFilePath)
-	var out strings.Builder
-	cmd.Stdout = &out
-	err := cmd.Run()
-	return p + " " + midiFilePath + " " + out.String(), err
-}
+	model.songSounds = lm.songSounds.songSounds
+	model.soundEffects = lm.soundEffects.soundEffects
 
-func initialPlayModel(chartFolderPath string, track string, stngs settings) playSongModel {
-	notesFilePath := filepath.Join(chartFolderPath, "notes.chart")
-	chartFile, err := os.Open(notesFilePath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			midFilePath := filepath.Join(chartFolderPath, "notes.mid")
-			_, midErr := os.Stat(midFilePath)
-			if midErr != nil {
-				panic(err.Error() + " " + midErr.Error())
-			}
-			msg, err := convertMidi(midFilePath)
-			if err != nil {
-				panic(msg + " " + err.Error())
-			}
-
-			chartFile, err = os.Open(notesFilePath)
-			if err != nil {
-				panic("still no chart: " + err.Error())
-			}
-		} else {
-			panic(err)
-		}
-	}
-
-	chart, err := ParseF(chartFile)
-	chartFile.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	songStreamer, songFormat, err := openOggAudioFile(filepath.Join(chartFolderPath, "song.ogg"))
-	if err != nil {
-		panic(err)
-	}
-	guitarStreamer, guitarFormat, err := openOggAudioFile(filepath.Join(chartFolderPath, "guitar.ogg"))
-	if err != nil {
-		panic(err)
-	}
-	bassStreamer, bassFormat, _ := openOggAudioFile(filepath.Join(chartFolderPath, "rhythm.ogg"))
-
-	model := createModelFromChart(chart, track, stngs)
-	model.chartInfo.fullFolderPath = chartFolderPath
-	model.chartInfo.track = track
-	model.songSounds.song = songStreamer
-	model.songSounds.guitar = guitarStreamer
-	model.songSounds.bass = bassStreamer
-
-	model.songSounds.guitarVolume = &effects.Volume{
-		Streamer: guitarStreamer,
-		Base:     2,
-		Volume:   0,
-		Silent:   false,
-	}
-
-	model.soundEffects, err = loadSoundEffects()
-	if err != nil {
-		panic(err)
-	}
-
-	if guitarFormat.SampleRate != songFormat.SampleRate {
-		panic("guitar and song sample rates do not match")
-	}
-	if bassStreamer != nil && bassFormat.SampleRate != songFormat.SampleRate {
-		panic("bass and song sample rates do not match")
-	}
-
-	model.songSounds.songFormat = songFormat
-
-	// set startTime just before returning, so loading times for files don't affect timing
 	model.startTime = time.Now()
 	return model
 }
@@ -168,11 +90,12 @@ func createModelFromChart(chart *Chart, trackName string, stngs settings) playSo
 	return playSongModel{chart, chartInfo{}, playableNotes, startTime, 0,
 		stngs,
 		playStats{-1, len(playableNotes), 0, 0, 0.5, 0, false},
-		0, viewModel{}, songSounds{}, soundEffects{}}
+		0, viewModel{}, songSounds{}, soundEffects{}, false}
 }
 
 func (m playSongModel) Init() tea.Cmd {
-	speaker.Init(m.songSounds.songFormat.SampleRate, m.songSounds.songFormat.SampleRate.N(time.Second/10))
+	log.Info(m.songSounds.songFormat)
+
 	return tea.Batch(timerCmd(m.settings.lineTime))
 }
 
@@ -424,11 +347,15 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.UpdateViewModel()
 
 		if m.viewModel.NoteLine[m.getStrumLineIndex()-1].DisplayTimeMs == 0 {
-			speaker.Play(m.songSounds.song)
-			speaker.Play(m.songSounds.guitarVolume)
-			if m.songSounds.bass != nil {
-				speaker.Play(m.songSounds.bass)
+			if !m.startedMusic {
+				speaker.Play(m.songSounds.song)
+				speaker.Play(m.songSounds.guitarVolume)
+				if m.songSounds.bass != nil {
+					speaker.Play(m.songSounds.bass)
+				}
+				m.startedMusic = true
 			}
+
 		}
 
 		return m, timerCmd(sleepTime)

@@ -17,12 +17,14 @@ type sessionState int
 
 const (
 	chooseSong sessionState = iota
+	loadSong
 	playSong
 )
 
 type mainModel struct {
 	state           sessionState
 	selectSongModel selectSongModel
+	loadSongModel   loadSongModel
 	playSongModel   playSongModel
 	songRootPath    string
 	dbAccessor      grDbAccessor
@@ -77,11 +79,11 @@ func initialMainModel() mainModel {
 	}
 
 	if chartFolderPath == "" {
-		return mainModel{chooseSong, initialSelectSongModel(songRootPath, db),
+		return mainModel{chooseSong, initialSelectSongModel(songRootPath, db), loadSongModel{},
 			playSongModel{}, songRootPath, db, settings}
 	} else {
-		playModel := initialPlayModel(chartFolderPath, track, settings)
-		return mainModel{playSong, selectSongModel{}, playModel,
+		loadModel := initialLoadModel(chartFolderPath, track, settings)
+		return mainModel{playSong, selectSongModel{}, loadModel, playSongModel{},
 			songRootPath, db, settings}
 	}
 }
@@ -121,14 +123,25 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		selectModel, cmd := m.selectSongModel.Update(msg)
 		selectedSong := selectModel.(selectSongModel).selectedSongPath
 		if selectedSong != "" {
-			playModel := initialPlayModel(selectModel.(selectSongModel).selectedSongPath,
-				"ExpertSingle", m.settings)
+			ssPath := selectModel.(selectSongModel).selectedSongPath
+			loadModel := initialLoadModel(ssPath, "ExpertSingle", m.settings)
+			lmCmd := loadModel.Init()
+			m.state = loadSong
+			m.loadSongModel = loadModel
+			return m, lmCmd
+		}
+		m.selectSongModel = selectModel.(selectSongModel)
+		return m, cmd
+	case loadSong:
+		loadModel, cmd := m.loadSongModel.Update(msg)
+		if loadModel.(loadSongModel).finishedSuccessfully() {
+			playModel := createModelFromLoadModel(loadModel.(loadSongModel), m.settings)
 			pmCmd := playModel.Init()
 			m.state = playSong
 			m.playSongModel = playModel
 			return m, pmCmd
 		}
-		m.selectSongModel = selectModel.(selectSongModel)
+		m.loadSongModel = loadModel.(loadSongModel)
 		return m, cmd
 	case playSong:
 		playModel, cmd := m.playSongModel.Update(msg)
@@ -171,6 +184,8 @@ func (m mainModel) View() string {
 	switch m.state {
 	case chooseSong:
 		return m.selectSongModel.View()
+	case loadSong:
+		return m.loadSongModel.View()
 	case playSong:
 		return m.playSongModel.View()
 	}
