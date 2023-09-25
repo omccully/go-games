@@ -8,8 +8,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	_ "github.com/glebarez/go-sqlite"
 )
@@ -77,26 +79,72 @@ func (conn grDbConnection) migrateDatabase() (int, error) {
 		}
 	}
 
-	if migrationVersion == 0 {
-		// migration system will be completed later if needed
-		// right now it just executes the initial migration
-		data, err := os.ReadFile("migrations/001_initial.sql")
-		if err != nil {
-			return 0, err
-		}
-		_, err = conn.db.Exec(string(data))
-		if err != nil {
-			return 0, err
-		}
+	migrationsApplied := 0
 
-		_, err = conn.db.Exec("PRAGMA user_version = 1")
-		if err != nil {
-			return 1, err
-		}
-
-		return 1, nil
+	migrationFilePaths, err := getMigrationFilePaths()
+	if err != nil {
+		return 0, err
 	}
-	return 0, nil
+
+	for _, migrationFilePath := range migrationFilePaths {
+		migrationNumber := migrationFilePath.Name()[0:3]
+		migrationNumberInt, err := strconv.Atoi(migrationNumber)
+
+		if err != nil {
+			return migrationsApplied, err
+		}
+
+		if migrationVersion == migrationNumberInt-1 {
+			fullPath := filepath.Join("migrations", migrationFilePath.Name())
+			data, err := os.ReadFile(fullPath)
+			if err != nil {
+				return migrationsApplied, err
+			}
+			_, err = conn.db.Exec(string(data))
+			if err != nil {
+				return migrationsApplied, err
+			}
+
+			migrationsApplied++
+
+			migrationVersion++
+
+			// db doesn't allow parameters in PRAGMA statements
+			_, err = conn.db.Exec("PRAGMA user_version = " + strconv.Itoa(migrationVersion))
+			if err != nil {
+				return migrationsApplied, err
+			}
+
+		}
+
+	}
+
+	return migrationsApplied, nil
+}
+
+func getMigrationFilePaths() ([]fs.DirEntry, error) {
+	entries, err := os.ReadDir("./migrations")
+	if err != nil {
+		return nil, err
+	}
+
+	var migrationFilePaths []fs.DirEntry
+	expectedFileIncrement := 1
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if filepath.Ext(e.Name()) == ".sql" {
+			migrationNumber := e.Name()[0:3]
+			if migrationNumber != fmt.Sprintf("%03d", expectedFileIncrement) {
+				return nil, fmt.Errorf("migration file %s is not in the expected format", e.Name())
+			}
+			migrationFilePaths = append(migrationFilePaths, e)
+			expectedFileIncrement++
+		}
+	}
+	return migrationFilePaths, nil
 }
 
 func (conn grDbConnection) close() error {

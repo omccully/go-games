@@ -1,10 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+const expectedTotalMigrations = 2
 
 func cultOfPersonalitySong() song {
 	return song{
@@ -69,8 +73,8 @@ func TestMigrateDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if count != 1 {
-		t.Errorf("Migration count is %d, expected %d", count, 1)
+	if count != expectedTotalMigrations {
+		t.Errorf("Migration count is %d, expected %d", count, expectedTotalMigrations)
 	}
 
 	count2, err := db.migrateDatabase()
@@ -80,6 +84,66 @@ func TestMigrateDatabase(t *testing.T) {
 
 	if count2 != 0 {
 		t.Errorf("Migration count is %d, expected %d", count2, 0)
+	}
+}
+
+func copy(src, dst string) (int64, error) {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		return 0, err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return 0, fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return 0, err
+	}
+	defer destination.Close()
+	nBytes, err := io.Copy(destination, source)
+	return nBytes, err
+}
+
+func openExistingTestDb() (testDb, error) {
+	dname, err := os.MkdirTemp("", "GoRhythmTests")
+	if err != nil {
+		return testDb{}, err
+	}
+
+	dbFilePath := filepath.Join(dname, "rhythmgame.db")
+
+	_, err = copy("testdata/testdb.db", dbFilePath)
+	if err != nil {
+		return testDb{}, err
+	}
+
+	db, err := openDbConnection(dbFilePath)
+	return testDb{dname, dbFilePath, db}, err
+}
+
+func TestMigrateExistingDatabase(t *testing.T) {
+	testDb, err := openExistingTestDb()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer testDb.destroy(t)
+	mc, err := testDb.migrateDatabase()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if mc != expectedTotalMigrations-1 {
+		t.Errorf("Migration count is %d, expected %d", mc, expectedTotalMigrations-1)
 	}
 }
 
