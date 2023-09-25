@@ -32,7 +32,7 @@ type playSongModel struct {
 }
 
 const (
-	ncGreen = 0 << iota
+	ncGreen = iota
 	ncRed
 	ncYellow
 	ncBlue
@@ -301,12 +301,17 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			// within the timing window
 		} else {
 			allChordNotesPlayed := true
+			overhitChord := false
+			foundMatchingChordNote := false
 			for _, chordNote := range chord {
 				if chordNote.NoteType == colorIndex {
+					foundMatchingChordNote = true
 					if m.viewModel.noteStates[colorIndex].lastCorrectlyPlayedChordNoteTimeMs == chordNote.TimeStamp {
 						// already played!!
 						m.playStats.overhitNote()
+						m.muteGuitar()
 						allChordNotesPlayed = false
+						overhitChord = true
 						for _, chordNote2 := range chord {
 							// decrement all times for chord notes because they were all played incorrectly
 							m.viewModel.noteStates[chordNote2.NoteType].lastCorrectlyPlayedChordNoteTimeMs--
@@ -320,8 +325,24 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 					allChordNotesPlayed = false
 				}
 			}
-			if allChordNotesPlayed {
+			if overhitChord {
+				// double tapped one of the chord notes before playing the full chord
+				m.playStats.overhitNote()
+				i += len(chord) - 1
+				continue
+			}
+			if !foundMatchingChordNote {
+				// played wrong note entirely
+				for _, chordNote2 := range chord {
+					// decrement all times for chord notes because they were all played incorrectly
+					m.viewModel.noteStates[chordNote2.NoteType].lastCorrectlyPlayedChordNoteTimeMs--
+				}
+				m.playStats.overhitNote()
+				i += len(chord) - 1
+				continue
+			}
 
+			if allChordNotesPlayed {
 				// can't decide if I want to count chords as 1 note or multiple
 				m.playStats.hitNote(len(chord))
 
@@ -338,7 +359,6 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				break
 			}
 		}
-
 	}
 
 	m.viewModel = refreshNoteStates(m.viewModel, strumTimeMs)

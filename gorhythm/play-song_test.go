@@ -75,11 +75,11 @@ func TestViewFirstNotes(t *testing.T) {
 	model = model.UpdateViewModel()
 
 	vm := model.viewModel
-	greenCount := countNotesOfColor(vm, 0)
-	redCount := countNotesOfColor(vm, 1)
-	yellowCount := countNotesOfColor(vm, 2)
-	blueCount := countNotesOfColor(vm, 3)
-	orangeCount := countNotesOfColor(vm, 4)
+	greenCount := countNotesOfColor(vm, ncGreen)
+	redCount := countNotesOfColor(vm, ncRed)
+	yellowCount := countNotesOfColor(vm, ncYellow)
+	blueCount := countNotesOfColor(vm, ncBlue)
+	orangeCount := countNotesOfColor(vm, ncOrange)
 
 	if greenCount != 4 {
 		t.Error("Expected 4 green notes, got", greenCount)
@@ -313,6 +313,9 @@ func TestPlayChordNoteWrongByDoubletappingFirstNote_ResetsStreak(t *testing.T) {
 	if model.playStats.noteStreak != 3 {
 		t.Error("Expected note streak to be 3, got", model.playStats.noteStreak)
 	}
+	if model.playStats.notesHit != 3 {
+		t.Error("Expected notesHit to be 3, got", model.playStats.notesHit)
+	}
 }
 
 func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
@@ -339,7 +342,7 @@ func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
 	}
 }
 
-func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreak(t *testing.T) {
+func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreakAndMissesNote(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
 	strumLineTime := 27750
@@ -388,6 +391,7 @@ func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
 	model = model.ProcessNoNotePlayed(strumLineTime)
+	model.playStats.noteStreak = 10
 
 	// skip YO chord
 	yoChord := getNextNoteOrChord(model.realTimeNotes, model.playStats.lastPlayedNoteIndex+1)
@@ -399,6 +403,10 @@ func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
 
 	if model.playStats.notesHit != 1 {
 		t.Error("Expected notesHit to be 1, got", model.playStats.notesHit)
+	}
+
+	if model.playStats.noteStreak != 1 {
+		t.Error("Expected note streak to be 1, got", model.playStats.noteStreak)
 	}
 }
 
