@@ -150,7 +150,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			s := song{fileHash, relative, pm.chartInfo.songName()}
 
-			err = m.dbAccessor.setSongScore(s, pm.chartInfo.track, pm.playStats.score)
+			err = m.dbAccessor.setSongScore(s, pm.chartInfo.track, pm.playStats.score, pm.playStats.notesHit, pm.playStats.totalNotes)
 			if err != nil {
 				panic(err)
 			}

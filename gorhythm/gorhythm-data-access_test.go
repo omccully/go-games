@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 const expectedTotalMigrations = 2
@@ -155,7 +156,9 @@ func TestSetSongScore(t *testing.T) {
 	defer db.destroy(t)
 
 	expectedScore := 113210
-	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore)
+	expectedNotesHit := 1111
+	expectedTotalNotes := 1313
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore, expectedNotesHit, expectedTotalNotes)
 
 	if err != nil {
 		t.Fatal(err)
@@ -167,9 +170,18 @@ func TestSetSongScore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actualScore := (*verifiedScore)[cultOfPersonalitySong().ChartHash].TrackScores["MediumSingle"].Score
+	ts := (*verifiedScore)[cultOfPersonalitySong().ChartHash].TrackScores["MediumSingle"]
+	actualScore := ts.Score
 	if actualScore != expectedScore {
 		t.Errorf("Verified score is %d, expected %d", actualScore, expectedScore)
+	}
+
+	if ts.NotesHit != expectedNotesHit {
+		t.Errorf("notes hit is %d, expected %d", ts.NotesHit, expectedNotesHit)
+	}
+
+	if ts.TotalNotes != expectedTotalNotes {
+		t.Errorf("total notes is %d, expected %d", ts.TotalNotes, expectedTotalNotes)
 	}
 }
 
@@ -181,14 +193,16 @@ func TestSetLowerScore_DoesNotChangeScore(t *testing.T) {
 	defer db.destroy(t)
 
 	expectedScore := 113210
-	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore)
+	expectedNotesHit := 1111
+	expectedTotalNotes := 1313
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore, expectedNotesHit, expectedTotalNotes)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	lowerScore := 100000
-	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", lowerScore)
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", lowerScore, expectedNotesHit-100, expectedTotalNotes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,14 +227,16 @@ func TestSetHigherScore_ChangesScore(t *testing.T) {
 	defer db.destroy(t)
 
 	lowerScore := 100000
-	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", lowerScore)
+	expectedNotesHit := 1111
+	expectedTotalNotes := 1313
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", lowerScore, expectedNotesHit-100, expectedTotalNotes)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	expectedScore := 113210
-	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore)
+	err = db.setSongScore(cultOfPersonalitySong(), "MediumSingle", expectedScore, expectedNotesHit, expectedTotalNotes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +291,7 @@ func TestFileHashesAreUnique(t *testing.T) {
 	}
 }
 
-func TestScoreStructure(t *testing.T) {
+func customTestScoreValidation(t *testing.T, scoreD int, notesHitD int, totalNotesD int, timestampD int64, expectedValidated bool) {
 	fileHash, err := hashFileByPath("sample-songs/cult-of-personality.chart")
 
 	if err != nil {
@@ -293,13 +309,16 @@ func TestScoreStructure(t *testing.T) {
 
 	track := "MediumSingle"
 	score := 113210
-	fp, err := fingerprintScore(fileHash, track, score)
+	notesHit := 1111
+	totalNotes := 1313
+	timestamp := time.Now().Unix()
+	fp, err := fingerprintScore(fileHash, track, score, notesHit, totalNotes, timestamp)
 
 	if err != nil {
 		t.Error(err)
 	}
 
-	ts := trackScore{score, fp}
+	ts := trackScore{score + scoreD, notesHit + notesHitD, totalNotes + totalNotesD, timestamp + timestampD, fp}
 	ss.TrackScores[track] = ts
 
 	songScores[fileHash] = ss
@@ -310,52 +329,38 @@ func TestScoreStructure(t *testing.T) {
 		t.Error(err)
 	}
 
-	if verifiedScore != score {
-		t.Errorf("Verified score is %d, expected %d", verifiedScore, score)
+	if expectedValidated {
+		if verifiedScore != ts {
+			t.Errorf("Verified score is %+v, expected validated %+v", verifiedScore, ts)
+		}
+	} else {
+		if verifiedScore != (trackScore{}) {
+			t.Errorf("Verified score is %+v, expected empty %+v", verifiedScore, trackScore{})
+		}
 	}
+
 }
 
-func TestScoreStructure_VerifyFailed(t *testing.T) {
-	file, err := os.Open("sample-songs/cult-of-personality.chart")
-	if err != nil {
-		t.Error(err)
-	}
+func TestScoreValidation_Passed(t *testing.T) {
+	customTestScoreValidation(t, 0, 0, 0, 0, true)
+}
 
-	defer file.Close()
+func TestScoreValidation_FailedScore(t *testing.T) {
+	customTestScoreValidation(t, 7, 0, 0, 0, false)
+	customTestScoreValidation(t, -10, 0, 0, 0, false)
+}
 
-	fileHash, err := hashFile(file)
+func TestScoreValidation_FailedNotesHit(t *testing.T) {
+	customTestScoreValidation(t, 0, 7, 0, 0, false)
+	customTestScoreValidation(t, 0, -10, 0, 0, false)
+}
 
-	if err != nil {
-		t.Error(err)
-	}
+func TestScoreValidation_FailedTotalNotes(t *testing.T) {
+	customTestScoreValidation(t, 0, 0, 7, 0, false)
+	customTestScoreValidation(t, 0, 0, -10, 0, false)
+}
 
-	songScores := make(map[string]songScore)
-	ss := songScore{
-		song{fileHash,
-			`Guitar Hero III\Quickplay\Living Colour - Cult Of Personality`,
-			"Living Colour - Cult Of Personality"},
-		make(map[string]trackScore),
-	}
-
-	track := "MediumSingle"
-	fp, err := fingerprintScore(fileHash, track, 113210)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	ts := trackScore{900000, fp}
-	ss.TrackScores[track] = ts
-
-	songScores[fileHash] = ss
-
-	verifiedScore, err := getVerifiedScore(&songScores, fileHash, track)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	if verifiedScore != 0 {
-		t.Errorf("Verified score is %d, expected %d (expected score not to be verified)", verifiedScore, 0)
-	}
+func TestScoreValidation_FailedTimestamp(t *testing.T) {
+	customTestScoreValidation(t, 0, 0, 0, 7, false)
+	customTestScoreValidation(t, 0, 0, 0, -10, false)
 }

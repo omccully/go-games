@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 )
@@ -28,7 +29,7 @@ type grDbConnection struct {
 
 type grDbAccessor interface {
 	getVerifiedSongScores() (*map[string]songScore, error)
-	setSongScore(s song, track string, score int) error
+	setSongScore(s song, track string, newScore int, notesHit int, totalNotes int) error
 	close() error
 }
 
@@ -45,6 +46,9 @@ type songScore struct {
 
 type trackScore struct {
 	Score       int
+	NotesHit    int
+	TotalNotes  int
+	Timestamp   int64
 	Fingerprint string // fingerprint to prevent cheating
 }
 
@@ -178,7 +182,7 @@ func (conn grDbConnection) addSongIfDoesntExist(s song) (int, error) {
 	return songId, nil
 }
 
-func (conn grDbConnection) setSongScore(s song, track string, newScore int) error {
+func (conn grDbConnection) setSongScore(s song, track string, newScore int, notesHit int, totalNotes int) error {
 	songId, err := conn.addSongIfDoesntExist(s)
 	if err != nil {
 		return err
@@ -194,17 +198,19 @@ func (conn grDbConnection) setSongScore(s song, track string, newScore int) erro
 		return nil
 	}
 
-	fingerprint, err := fingerprintScore(s.ChartHash, track, newScore)
+	timestamp := time.Now().Unix()
+
+	fingerprint, err := fingerprintScore(s.ChartHash, track, newScore, notesHit, totalNotes, timestamp)
 	if err != nil {
 		return err
 	}
 
 	if ts == 0 {
-		_, err = conn.db.Exec("INSERT INTO TrackScores (SongId, TrackName, Score, Fingerprint) VALUES (?, ?, ?, ?)",
-			songId, track, newScore, fingerprint)
+		_, err = conn.db.Exec("INSERT INTO TrackScores (SongId, TrackName, Score, Fingerprint, NotesHit, TotalNotes, Timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			songId, track, newScore, fingerprint, notesHit, totalNotes, timestamp)
 	} else {
-		_, err = conn.db.Exec("UPDATE TrackScores SET Score=?, Fingerprint=? WHERE SongId=? AND TrackName=?",
-			newScore, fingerprint, songId, track)
+		_, err = conn.db.Exec("UPDATE TrackScores SET Score=?, Fingerprint=?, NotesHit=?, TotalNotes=?, Timestamp=? WHERE SongId=? AND TrackName=?",
+			newScore, fingerprint, notesHit, totalNotes, timestamp, songId, track)
 	}
 
 	return err
@@ -224,7 +230,7 @@ func (conn grDbConnection) getTrackScore(songId int, trackName string) (int, err
 }
 
 func (conn grDbConnection) getVerifiedSongScores() (*map[string]songScore, error) {
-	rows, err := conn.db.Query("SELECT ChartHash,TrackName,Score,Fingerprint FROM TrackScores INNER JOIN Songs ON TrackScores.SongId = Songs.Id")
+	rows, err := conn.db.Query("SELECT ChartHash,TrackName,Score,Fingerprint,NotesHit,TotalNotes,Timestamp FROM TrackScores INNER JOIN Songs ON TrackScores.SongId = Songs.Id")
 	if err != nil {
 		panic(err)
 	}
@@ -241,11 +247,13 @@ func (conn grDbConnection) getVerifiedSongScores() (*map[string]songScore, error
 		var trackName string
 		var score int
 		var fingerprint string
-		err = rows.Scan(&chartHash, &trackName, &score, &fingerprint)
+		var notesHit int
+		var totalNotes int
+		var timestamp int64
+		err = rows.Scan(&chartHash, &trackName, &score, &fingerprint, &notesHit, &totalNotes, &timestamp)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("%s %s %d %s\n", chartHash, trackName, score, fingerprint)
 
 		_, ok := result[chartHash]
 		if !ok {
@@ -255,12 +263,12 @@ func (conn grDbConnection) getVerifiedSongScores() (*map[string]songScore, error
 			}
 		}
 
-		isValidScore, err := verifyScore(chartHash, trackName, score, fingerprint)
+		isValidScore, err := verifyScore(chartHash, trackName, score, notesHit, totalNotes, timestamp, fingerprint)
 		if err != nil {
 			return nil, err
 		}
 		if isValidScore {
-			result[chartHash].TrackScores[trackName] = trackScore{score, fingerprint}
+			result[chartHash].TrackScores[trackName] = trackScore{score, notesHit, totalNotes, timestamp, fingerprint}
 		}
 	}
 
@@ -304,7 +312,7 @@ func hashFile(file *os.File) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func fingerprintScore(fileHashHex string, track string, score int) (string, error) {
+func fingerprintScore(fileHashHex string, track string, score int, notesHit int, totalNotes int, timestamp int64) (string, error) {
 
 	fh, err := hex.DecodeString(fileHashHex)
 	if err != nil {
@@ -318,15 +326,31 @@ func fingerprintScore(fileHashHex string, track string, score int) (string, erro
 	buff := new(bytes.Buffer)
 	err = binary.Write(buff, binary.LittleEndian, uint32(score))
 	if err != nil {
-		fmt.Println(err)
+		return "", err
 	}
+
+	err = binary.Write(buff, binary.LittleEndian, uint32(notesHit))
+	if err != nil {
+		return "", err
+	}
+
+	err = binary.Write(buff, binary.LittleEndian, uint32(totalNotes))
+	if err != nil {
+		return "", err
+	}
+
+	err = binary.Write(buff, binary.LittleEndian, uint64(timestamp))
+	if err != nil {
+		return "", err
+	}
+
 	scoreHash.Write(buff.Bytes())
 
 	return hex.EncodeToString(scoreHash.Sum(nil)), nil
 }
 
-func verifyScore(fileHashHex string, track string, score int, expectedFingerprint string) (bool, error) {
-	fngr, err := fingerprintScore(fileHashHex, track, score)
+func verifyScore(fileHashHex string, track string, score int, notesHit int, totalNotes int, timestamp int64, expectedFingerprint string) (bool, error) {
+	fngr, err := fingerprintScore(fileHashHex, track, score, notesHit, totalNotes, timestamp)
 	if err != nil {
 		return false, err
 	}
@@ -334,16 +358,16 @@ func verifyScore(fileHashHex string, track string, score int, expectedFingerprin
 	return fngr == expectedFingerprint, nil
 }
 
-func getVerifiedScore(gd *map[string]songScore, fileHashHex string, track string) (int, error) {
+func getVerifiedScore(gd *map[string]songScore, fileHashHex string, track string) (trackScore, error) {
 	ts := (*gd)[fileHashHex].TrackScores[track]
 
-	fp, err := fingerprintScore(fileHashHex, track, ts.Score)
+	fp, err := fingerprintScore(fileHashHex, track, ts.Score, ts.NotesHit, ts.TotalNotes, ts.Timestamp)
 	if err != nil {
-		return 0, err
+		return trackScore{}, err
 	}
 	if fp != ts.Fingerprint {
-		return 0, nil
+		return trackScore{}, nil
 	}
 
-	return ts.Score, nil
+	return ts, nil
 }
