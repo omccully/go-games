@@ -52,6 +52,13 @@ type trackScore struct {
 	Fingerprint string // fingerprint to prevent cheating
 }
 
+func (ts trackScore) percentage() float64 {
+	if ts.TotalNotes == 0 {
+		return 0
+	}
+	return float64(ts.NotesHit) / float64(ts.TotalNotes)
+}
+
 func openDefaultDbConnection() (grDbConnection, error) {
 	dbFolderPath, err := getGameDataFolder()
 	if err != nil {

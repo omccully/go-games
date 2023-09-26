@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -52,6 +53,9 @@ func (i *songFolder) Description() string {
 			b.WriteString(k)
 			b.WriteString(": ")
 			b.WriteString(strconv.Itoa(v.Score))
+			b.WriteString(fmt.Sprintf(" (%.0f%%)", v.percentage()*100))
+			b.WriteRune(' ')
+			b.WriteString(starString(calcStars(v.Score, v.TotalNotes)))
 			first = false
 		}
 
@@ -76,7 +80,7 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 
 	selectSongMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
 	selectSongMenuList.Title = "All Songs"
-	selectSongMenuList.SetSize(55, settings.fretBoardHeight-5)
+	selectSongMenuList.SetSize(70, settings.fretBoardHeight-5)
 	selectSongMenuList.SetShowStatusBar(false)
 	selectSongMenuList.SetFilteringEnabled(false)
 	selectSongMenuList.SetShowHelp(false)

@@ -214,6 +214,10 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case statsScreen:
 		statsModel, cmd := m.statsScreenModel.Update(msg)
 		m.statsScreenModel = statsModel.(statsScreenModel)
+		if m.statsScreenModel.shouldContinue {
+			m.onQuit()
+			return m, tea.Quit
+		}
 		return m, cmd
 	}
 	return m, nil

@@ -51,6 +51,57 @@ func (ps *playStats) percentage() float64 {
 	return float64(ps.notesHit) / float64(ps.totalNotes)
 }
 
+func (ps *playStats) stars() int {
+	return calcStars(ps.score, ps.totalNotes)
+}
+
+func calcStars(score int, totalNotes int) int {
+	// https://guitarhero.fandom.com/wiki/Base_score
+	baseScore := totalNotes * pointsPerNote
+
+	averageMultiplier := float64(score) / float64(baseScore)
+	if averageMultiplier > 6 {
+		return 9
+	} else if averageMultiplier > 5.2 {
+		return 8
+	} else if averageMultiplier > 4.4 {
+		return 7
+	} else if averageMultiplier > 3.6 {
+		return 6
+	} else if averageMultiplier > 2.8 {
+		return 5
+	} else if averageMultiplier > 2 {
+		return 4
+	} else {
+		return 3
+	}
+}
+
+func starString(starCount int) string {
+	switch starCount {
+	case 1:
+		return "★☆☆☆☆"
+	case 2:
+		return "★★☆☆☆"
+	case 3:
+		return "★★★☆☆"
+	case 4:
+		return "★★★★☆"
+	case 5:
+		return "★★★★★"
+	case 6:
+		return "★★★★★★"
+	case 7:
+		return "★★★★★★★"
+	case 8:
+		return "★★★★★★★★"
+	case 9:
+		return "★★★★★★★★★"
+	default:
+		return "☆☆☆☆☆"
+	}
+}
+
 func (ps playStats) getMultiplier() int {
 	if ps.noteStreak < 10 {
 		return 1

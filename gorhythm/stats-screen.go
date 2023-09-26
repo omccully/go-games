@@ -72,6 +72,7 @@ func (m statsScreenModel) View() string {
 		sb.WriteString("FAILED!!!")
 		sb.WriteString("Notes hit: " + fmt.Sprintf("%d", m.playStats.notesHit) + "\n")
 	} else {
+		sb.WriteString(starString(m.playStats.stars()) + "\n")
 		sb.WriteString("Percentage: " + fmt.Sprintf("%.0f", m.playStats.percentage()*100) + "%\n")
 		sb.WriteString("Score: " + fmt.Sprintf("%d", m.playStats.score) + "\n")
 		sb.WriteString("Notes hit: " + fmt.Sprintf("%d/%d", m.playStats.notesHit, m.playStats.totalNotes) + "\n")
