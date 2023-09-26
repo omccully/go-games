@@ -13,7 +13,7 @@ type playStats struct {
 }
 
 const rockMeterIncrement = 0.02
-const pointsPerNote = 100
+const pointsPerNote = 50
 
 func (ps *playStats) hitNote(noteSize int) {
 	ps.notesHit += noteSize

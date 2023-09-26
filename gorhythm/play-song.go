@@ -390,3 +390,10 @@ func (m playSongModel) currentStrumTimeMs() int {
 	strumTimeMs := int(elapsedTimeSinceStart/time.Millisecond) - (lineTimeMs * strumLineIndex)
 	return strumTimeMs
 }
+
+func (m playSongModel) songIsFinished() bool {
+	speaker.Lock()
+	finished := m.songSounds.song.Position() == m.songSounds.song.Len()
+	speaker.Unlock()
+	return finished
+}

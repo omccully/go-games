@@ -213,11 +213,9 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-
 			tn, ok := m.menuList.SelectedItem().(trackName)
 			if ok {
 				m.selectedTrack = tn.fullTrackName
-				// panic("idk " + tn.fullTrackName)
 			} else {
 				to := reflect.TypeOf(m.menuList.SelectedItem()).String()
 				panic("selected track is not a trackName " + to)

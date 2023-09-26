@@ -62,7 +62,7 @@ func (i *songFolder) Description() string {
 }
 func (i *songFolder) FilterValue() string { return i.name }
 
-func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor) selectSongModel {
+func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings) selectSongModel {
 	model := selectSongModel{}
 
 	model.rootSongFolder = loadSongFolder(rootPath)
@@ -75,8 +75,8 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor) selectSong
 	}
 
 	selectSongMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
-	selectSongMenuList.Title = "Go Rhythm"
-	selectSongMenuList.SetSize(55, 30)
+	selectSongMenuList.Title = "All Songs"
+	selectSongMenuList.SetSize(55, settings.fretBoardHeight-5)
 	selectSongMenuList.SetShowStatusBar(false)
 	selectSongMenuList.SetFilteringEnabled(false)
 	selectSongMenuList.SetShowHelp(false)
@@ -96,7 +96,7 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor) selectSong
 
 func loadSongFolder(p string) *songFolder {
 	folder := songFolder{}
-	folder.name = "root"
+	folder.name = "All Songs"
 	folder.isLeaf = false
 	folder.path = p
 	folder.subFolders = []*songFolder{}
@@ -137,6 +137,25 @@ func trimSongFolders(fldr *songFolder) {
 			trimSongFolders(fldr.subFolders[i])
 		}
 	}
+}
+
+func (fldr *songFolder) queryFolder(path []string) *songFolder {
+	for _, p := range path {
+		fldr = fldr.getSubfolder(p)
+		if fldr == nil {
+			return nil
+		}
+	}
+	return fldr
+}
+
+func (fldr *songFolder) getSubfolder(name string) *songFolder {
+	for _, f := range fldr.subFolders {
+		if f.name == name {
+			return f
+		}
+	}
+	return nil
 }
 
 func incrementSongCount(fldr *songFolder) {
@@ -196,16 +215,22 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.menuList.Title = i.name
 					m.selectedSongFolder = i
 					initializeScores(i, m.songScores)
+					m.menuList.Select(0)
 				}
 			}
 		case "backspace":
 			if m.selectedSongFolder.parent != nil {
 				listItems := []list.Item{}
-				for _, f := range m.selectedSongFolder.parent.subFolders {
+				indexOfSelected := 0
+				for i, f := range m.selectedSongFolder.parent.subFolders {
 					listItems = append(listItems, f)
+					if f == m.selectedSongFolder {
+						indexOfSelected = i
+					}
 				}
 				m.menuList.SetItems(listItems)
 				m.menuList.Title = m.selectedSongFolder.parent.name
+				m.menuList.Select(indexOfSelected)
 				m.selectedSongFolder = m.selectedSongFolder.parent
 			}
 		default:

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -79,7 +80,7 @@ func initialMainModel() mainModel {
 	}
 
 	if chartFolderPath == "" {
-		return mainModel{chooseSong, initialSelectSongModel(songRootPath, db), loadSongModel{},
+		return mainModel{chooseSong, initialSelectSongModel(songRootPath, db, settings), loadSongModel{},
 			playSongModel{}, songRootPath, db, settings}
 	} else {
 		loadModel := initialLoadModel(chartFolderPath, track, settings)
@@ -112,12 +113,13 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.onQuit()
 		return m, tea.Quit
 	}
-	switch msg := msg.(type) {
 
+	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.settings.fretBoardHeight = msg.Height - 3
 		return m, nil
 	}
+
 	switch m.state {
 	case chooseSong:
 		selectModel, cmd := m.selectSongModel.Update(msg)
@@ -150,7 +152,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			println("Failed song " + pm.chartInfo.songName())
 			m.onQuit()
 			return m, tea.Quit
-		} else if pm.playStats.finished() {
+		} else if pm.playStats.finished() && pm.songIsFinished() {
 			chartPath := filepath.Join(pm.chartInfo.fullFolderPath, "notes.chart")
 			fileHash, err := hashFileByPath(chartPath)
 			if err != nil {
@@ -168,6 +170,26 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				panic(err)
 			}
 
+			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
+			m.state = chooseSong
+
+			// navigate to the song in the tree
+			folders := splitFolderPath(relative)
+			songFolder := m.selectSongModel.rootSongFolder.queryFolder(folders)
+			if songFolder != nil {
+				m.selectSongModel.selectedSongFolder = songFolder.parent
+			}
+
+			indexToSelect := 0
+			for i, f := range m.selectSongModel.selectedSongFolder.subFolders {
+				if f == songFolder {
+					indexToSelect = i
+					break
+				}
+			}
+
+			m.selectSongModel.menuList.Select(indexToSelect)
+
 			println("Finished song " + pm.chartInfo.songName() + " with score " + fmt.Sprintf("%d", pm.playStats.score))
 			m.onQuit()
 			return m, tea.Quit
@@ -178,6 +200,11 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 	return m, nil
+}
+
+func splitFolderPath(folderPath string) []string {
+	var folderSeparatorMatcher = regexp.MustCompile(`[\\\/]`)
+	return folderSeparatorMatcher.Split(folderPath, -1)
 }
 
 func (m mainModel) View() string {
