@@ -50,7 +50,7 @@ func openAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
 	} else if strings.HasSuffix(filePath, ".wav") {
 		return openWavAudioFile(filePath)
 	} else {
-		return nil, beep.Format{}, fmt.Errorf("Unknown file type: %s", filePath)
+		return nil, beep.Format{}, fmt.Errorf("unknown file type: %s", filePath)
 	}
 }
 

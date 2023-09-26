@@ -5,9 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -17,10 +19,13 @@ import (
 
 type loadSongModel struct {
 	chartFolderPath string
+	settings        settings
 	spinner         spinner.Model
 	soundEffects    *loadedSoundEffectsMsg
 	songSounds      *loadedSongSoundsMsg
 	chart           *loadedChartMsg
+	menuList        list.Model
+	selectedTrack   string
 }
 
 type loadedSoundEffectsMsg struct {
@@ -39,6 +44,19 @@ type loadedChartMsg struct {
 	err       error
 }
 
+type trackName struct {
+	difficulty      string
+	difficultyValue int
+	instrument      string
+	fullTrackName   string
+}
+
+func (i trackName) Title() string { return i.instrument + " -- " + i.difficulty }
+func (i trackName) Description() string {
+	return ""
+}
+func (i trackName) FilterValue() string { return i.fullTrackName }
+
 func (m loadSongModel) Init() tea.Cmd {
 	return tea.Batch(loadSongSoundsCmd(m.chartFolderPath), convertChartCmd(m.chartFolderPath), loadSongEffectsCmd, m.spinner.Tick)
 }
@@ -47,9 +65,12 @@ func initialLoadModel(chartFolderPath string, track string, stngs settings) load
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	return loadSongModel{
 		chartFolderPath: chartFolderPath,
+		settings:        stngs,
 		spinner:         s,
+		selectedTrack:   track,
 	}
 }
 
@@ -163,12 +184,58 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		speaker.Init(m.songSounds.songSounds.songFormat.SampleRate, m.songSounds.songSounds.songFormat.SampleRate.N(time.Second/10))
 	case loadedChartMsg:
 		m.chart = &msg
+
+		if m.chart.err == nil {
+			listItems := make([]list.Item, len(m.chart.chart.Tracks))
+
+			i := 0
+			tracks := make([]string, len(m.chart.chart.Tracks))
+			for k := range m.chart.chart.Tracks {
+				tracks[i] = k
+
+				i++
+			}
+
+			sortedTracks := sortTracks(tracks)
+			for i, track := range sortedTracks {
+				listItems[i] = track
+			}
+
+			selectTrackMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
+			selectTrackMenuList.Title = "Select Track"
+			selectTrackMenuList.SetSize(m.settings.fretBoardHeight-10, 25)
+			selectTrackMenuList.SetShowStatusBar(false)
+			selectTrackMenuList.SetFilteringEnabled(false)
+			selectTrackMenuList.SetShowHelp(false)
+			selectTrackMenuList.DisableQuitKeybindings()
+			m.menuList = selectTrackMenuList
+		}
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+
+			tn, ok := m.menuList.SelectedItem().(trackName)
+			if ok {
+				m.selectedTrack = tn.fullTrackName
+				// panic("idk " + tn.fullTrackName)
+			} else {
+				to := reflect.TypeOf(m.menuList.SelectedItem()).String()
+				panic("selected track is not a trackName " + to)
+			}
+		default:
+			m.menuList, _ = m.menuList.Update(msg)
+		}
+
 	}
 	return m, scmd
 }
 
-func (m loadSongModel) finishedSuccessfully() bool {
+func (m loadSongModel) finishedLoading() bool {
 	return m.chart != nil && m.chart.err == nil &&
 		m.soundEffects != nil && m.soundEffects.err == nil &&
 		m.songSounds != nil && m.songSounds.err == nil
+}
+
+func (m loadSongModel) finishedSuccessfully() bool {
+	return m.finishedLoading() && m.selectedTrack != ""
 }

@@ -23,8 +23,8 @@ var topLineStyle = lipgloss.NewStyle().
 
 func (m loadSongModel) View() string {
 	sb := strings.Builder{}
-	topLine := topLineStyle.Render(m.spinner.View()+" Loading song from "+m.chartFolderPath) + "\n\n"
-	sb.WriteString(topLine)
+	// topLine := topLineStyle.Render(m.spinner.View()+" Loading song from "+m.chartFolderPath) + "\n\n"
+	// sb.WriteString(topLine)
 
 	ld := strings.Builder{}
 	if m.chart != nil {
@@ -74,6 +74,15 @@ func (m loadSongModel) View() string {
 	}
 
 	sb.WriteString(loadingDetailsStyle.Render(ld.String()))
+
+	if m.chart != nil {
+		sb.WriteString("\n\n")
+		if m.selectedTrack == "" {
+			sb.WriteString(m.menuList.View())
+		} else {
+			sb.WriteString(greenTextStyle.Render("✓ User selected track: " + m.selectedTrack))
+		}
+	}
 
 	return sb.String()
 }

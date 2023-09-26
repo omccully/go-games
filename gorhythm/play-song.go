@@ -63,9 +63,9 @@ type playableNote struct {
 }
 
 func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
-	model := createModelFromChart(lm.chart.chart, "ExpertSingle", stngs)
+	model := createModelFromChart(lm.chart.chart, lm.selectedTrack, stngs)
 	model.chartInfo.fullFolderPath = lm.chartFolderPath
-	model.chartInfo.track = "ExpertSingle"
+	model.chartInfo.track = lm.selectedTrack
 
 	model.songSounds = lm.songSounds.songSounds
 	model.soundEffects = lm.soundEffects.soundEffects

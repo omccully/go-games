@@ -83,7 +83,7 @@ func initialMainModel() mainModel {
 			playSongModel{}, songRootPath, db, settings}
 	} else {
 		loadModel := initialLoadModel(chartFolderPath, track, settings)
-		return mainModel{playSong, selectSongModel{}, loadModel, playSongModel{},
+		return mainModel{loadSong, selectSongModel{}, loadModel, playSongModel{},
 			songRootPath, db, settings}
 	}
 }
@@ -124,7 +124,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		selectedSong := selectModel.(selectSongModel).selectedSongPath
 		if selectedSong != "" {
 			ssPath := selectModel.(selectSongModel).selectedSongPath
-			loadModel := initialLoadModel(ssPath, "ExpertSingle", m.settings)
+			loadModel := initialLoadModel(ssPath, "", m.settings)
 			lmCmd := loadModel.Init()
 			m.state = loadSong
 			m.loadSongModel = loadModel

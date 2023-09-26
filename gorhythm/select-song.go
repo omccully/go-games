@@ -74,14 +74,15 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor) selectSong
 		listItems = append(listItems, f)
 	}
 
-	pauseMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
-	pauseMenuList.Title = "Go Rhythm"
-	pauseMenuList.SetSize(55, 30)
-	pauseMenuList.SetShowStatusBar(false)
-	pauseMenuList.SetFilteringEnabled(false)
-	pauseMenuList.SetShowHelp(false)
-	pauseMenuList.DisableQuitKeybindings()
-	model.menuList = pauseMenuList
+	selectSongMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
+	selectSongMenuList.Title = "Go Rhythm"
+	selectSongMenuList.SetSize(55, 30)
+	selectSongMenuList.SetShowStatusBar(false)
+	selectSongMenuList.SetFilteringEnabled(false)
+	selectSongMenuList.SetShowHelp(false)
+	selectSongMenuList.DisableQuitKeybindings()
+	model.menuList = selectSongMenuList
+
 	model.dbAccessor = dbAccessor
 
 	ss, err := dbAccessor.getVerifiedSongScores()
