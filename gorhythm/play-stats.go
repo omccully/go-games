@@ -47,6 +47,10 @@ func (ps *playStats) decreaseRockMeter(amount float64) {
 	}
 }
 
+func (ps *playStats) percentage() float64 {
+	return float64(ps.notesHit) / float64(ps.totalNotes)
+}
+
 func (ps playStats) getMultiplier() int {
 	if ps.noteStreak < 10 {
 		return 1
