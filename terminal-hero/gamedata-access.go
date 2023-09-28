@@ -64,7 +64,7 @@ func openDefaultDbConnection() (grDbConnection, error) {
 	if err != nil {
 		panic(err)
 	}
-	dbFilePath := filepath.Join(dbFolderPath, "rhythmgame.db")
+	dbFilePath := filepath.Join(dbFolderPath, "terminalhero.db")
 	return openDbConnection(dbFilePath)
 }
 
@@ -287,7 +287,7 @@ func getGameDataFolder() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, ".rhythmgame"), nil
+	return filepath.Join(dir, ".terminalhero"), nil
 }
 
 func createDataFolderIfDoesntExist() error {

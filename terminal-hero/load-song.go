@@ -126,9 +126,9 @@ func convertChartCmd(chartFolderPath string) tea.Cmd {
 }
 
 func convertMidi(midiFilePath string) (string, error) {
-	p := os.Getenv("GORHYTHM_MID2CHART_JARPATH")
+	p := os.Getenv(mid2chartJarPathEnvVar)
 	if p == "" {
-		panic("Selected a song with only a notes.mid file and no notes.chart, and GORHYTHM_MID2CHART_JARPATH is not set to convert it.")
+		panic("Selected a song with only a notes.mid file and no notes.chart, and " + mid2chartJarPathEnvVar + " is not set to convert it.")
 	}
 
 	cmd := exec.Command("java", "-jar", p, midiFilePath)

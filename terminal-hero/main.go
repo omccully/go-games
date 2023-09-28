@@ -11,7 +11,9 @@ import (
 )
 
 const (
-	litDurationMs = 150
+	litDurationMs          = 150
+	songPathEnvVar         = "TERMINALHERO_SONGS_PATH"
+	mid2chartJarPathEnvVar = "TERMINALHERO_MID2CHART_JARPATH"
 )
 
 type sessionState int
@@ -54,9 +56,9 @@ func initialMainModel() mainModel {
 	fretboardHeight := 35
 	settings := settings{fretboardHeight, lineTime, strumTolerance}
 
-	songRootPath := os.Getenv("GORHYTHM_SONGS_PATH")
+	songRootPath := os.Getenv(songPathEnvVar)
 	if songRootPath == "" {
-		panic("GORHYTHM_SONGS_PATH not set")
+		panic(songPathEnvVar + " environment variable not set")
 	}
 
 	return mainModel{
