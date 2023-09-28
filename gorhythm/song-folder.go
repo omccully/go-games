@@ -57,6 +57,7 @@ func populateSongFolder(fldr *songFolder) {
 			if f.Name() == "notes.chart" || f.Name() == "notes.mid" {
 				incrementSongCount(fldr)
 				fldr.isLeaf = true
+				break
 			}
 		}
 	}
