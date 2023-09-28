@@ -146,15 +146,26 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.selectSongModel = selectModel.(selectSongModel)
 		return m, cmd
 	case loadSong:
-		loadModel, cmd := m.loadSongModel.Update(msg)
-		if loadModel.(loadSongModel).finishedSuccessfully() {
-			playModel := createModelFromLoadModel(loadModel.(loadSongModel), m.settings)
+		lm, cmd := m.loadSongModel.Update(msg)
+		loadModel := lm.(loadSongModel)
+
+		if loadModel.backout {
+			m.state = chooseSong
+			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
+			var err error
+			m.selectSongModel, err = m.selectSongModel.highlightSongAbsolutePath(loadModel.chartFolderPath)
+			if err != nil {
+				panic(err)
+			}
+			return m, nil
+		} else if loadModel.finishedSuccessfully() {
+			playModel := createModelFromLoadModel(loadModel, m.settings)
 			pmCmd := playModel.Init()
 			m.state = playSong
 			m.playSongModel = playModel
 			return m, pmCmd
 		}
-		m.loadSongModel = loadModel.(loadSongModel)
+		m.loadSongModel = loadModel
 		return m, cmd
 	case playSong:
 		playModel, cmd := m.playSongModel.Update(msg)
@@ -166,45 +177,6 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if pm.playStats.finished() && pm.songIsFinished() {
 			m.statsScreenModel = initialStatsScreenModel(pm.chartInfo, pm.playStats, m.songRootPath, m.dbAccessor)
 			m.state = statsScreen
-			// chartPath := filepath.Join(pm.chartInfo.fullFolderPath, "notes.chart")
-			// fileHash, err := hashFileByPath(chartPath)
-			// if err != nil {
-			// 	panic(err)
-			// }
-			// relative, err := pm.chartInfo.relativePath(m.songRootPath)
-			// if err != nil {
-			// 	panic(err)
-			// }
-
-			// s := song{fileHash, relative, pm.chartInfo.songName()}
-
-			// err = m.dbAccessor.setSongScore(s, pm.chartInfo.track, pm.playStats.score, pm.playStats.notesHit, pm.playStats.totalNotes)
-			// if err != nil {
-			// 	panic(err)
-			// }
-
-			// m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
-			// m.state = chooseSong
-
-			// // navigate to the song in the tree
-			// folders := splitFolderPath(relative)
-			// songFolder := m.selectSongModel.rootSongFolder.queryFolder(folders)
-			// if songFolder != nil {
-			// 	m.selectSongModel.selectedSongFolder = songFolder.parent
-			// }
-
-			// indexToSelect := 0
-			// for i, f := range m.selectSongModel.selectedSongFolder.subFolders {
-			// 	if f == songFolder {
-			// 		indexToSelect = i
-			// 		break
-			// 	}
-			// }
-
-			// m.selectSongModel.menuList.Select(indexToSelect)
-
-			// println("Finished song " + pm.chartInfo.songName() + " with score " + fmt.Sprintf("%d", pm.playStats.score))
-
 			return m, nil
 		}
 
@@ -215,8 +187,19 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		statsModel, cmd := m.statsScreenModel.Update(msg)
 		m.statsScreenModel = statsModel.(statsScreenModel)
 		if m.statsScreenModel.shouldContinue {
-			m.onQuit()
-			return m, tea.Quit
+
+			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
+			m.state = chooseSong
+
+			ci := m.statsScreenModel.chartInfo
+
+			// navigate to the song in the tree
+			var err error
+			m.selectSongModel, err = m.selectSongModel.highlightSongAbsolutePath(ci.fullFolderPath)
+
+			if err != nil {
+				panic(err)
+			}
 		}
 		return m, cmd
 	}

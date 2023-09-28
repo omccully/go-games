@@ -46,9 +46,9 @@ func loadSoundEffects() (soundEffects, error) {
 
 func openAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
 	if strings.HasSuffix(filePath, ".ogg") {
-		return openOggAudioFile(filePath)
+		return openBufferedOggAudioFile(filePath)
 	} else if strings.HasSuffix(filePath, ".wav") {
-		return openWavAudioFile(filePath)
+		return openBufferedWavAudioFile(filePath)
 	} else {
 		return nil, beep.Format{}, fmt.Errorf("unknown file type: %s", filePath)
 	}
@@ -59,15 +59,17 @@ func wavDecoder(rc io.ReadCloser) (beep.StreamSeekCloser, beep.Format, error) {
 	return ssc, f, err
 }
 
-func openWavAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
-	return openAudioFileG(filePath, wavDecoder)
+func openBufferedWavAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
+	return openBufferedAudioFileG(filePath, wavDecoder)
 }
 
-func openOggAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
-	return openAudioFileG(filePath, vorbis.Decode)
+func openBufferedOggAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
+	return openBufferedAudioFileG(filePath, vorbis.Decode)
 }
 
-func openAudioFileG(filePath string, decoder func(rc io.ReadCloser) (beep.StreamSeekCloser, beep.Format, error)) (beep.StreamSeeker, beep.Format, error) {
+type decoderFunc func(rc io.ReadCloser) (beep.StreamSeekCloser, beep.Format, error)
+
+func openBufferedAudioFileG(filePath string, decoder decoderFunc) (beep.StreamSeeker, beep.Format, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, beep.Format{}, err
@@ -84,19 +86,35 @@ func openAudioFileG(filePath string, decoder func(rc io.ReadCloser) (beep.Stream
 	return bufferedStreamer, format, nil
 }
 
+func openOggAudioFile(filePath string) (beep.StreamSeekCloser, beep.Format, error) {
+	return openAudioFileG(filePath, vorbis.Decode)
+}
+
+func openAudioFileG(filePath string, decoder decoderFunc) (beep.StreamSeekCloser, beep.Format, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, beep.Format{}, err
+	}
+	streamer, format, err := decoder(file)
+	if err != nil {
+		return nil, beep.Format{}, err
+	}
+	return streamer, format, nil
+}
+
 func closeSoundStreams(songSounds songSounds) {
-	guitarCLoser, ok := songSounds.guitar.(beep.StreamSeekCloser)
-	if ok && guitarCLoser != nil {
-		guitarCLoser.Close()
-	}
+	closeStreamSeeker(songSounds.guitar)
+	closeStreamSeeker(songSounds.song)
+	closeStreamSeeker(songSounds.bass)
+}
 
-	songCLoser, ok := songSounds.song.(beep.StreamSeekCloser)
-	if ok && songCLoser != nil {
-		songCLoser.Close()
+func closeStreamSeeker(streamer beep.StreamSeeker) {
+	closer, ok := streamer.(beep.StreamSeekCloser)
+	if ok && closer != nil {
+		closer.Close()
 	}
+}
 
-	bassCloser, ok := songSounds.bass.(beep.StreamSeekCloser)
-	if ok && bassCloser != nil {
-		bassCloser.Close()
-	}
+func (s sound) close() {
+	closeStreamSeeker(s.soundStream)
 }

@@ -96,3 +96,45 @@ func TestParseTrackName(t *testing.T) {
 		customTestParseTrackName(t, testCase.track, testCase.expected)
 	}
 }
+
+func TestRelativePath(t *testing.T) {
+	impulse := `C:\Users\omccu\GoRhythm\Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
+	root := `C:\Users\omccu\GoRhythm`
+
+	expected := `Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
+
+	actual, err := relativePath(impulse, root)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if actual != expected {
+		t.Errorf("Expected %s, got %s", expected, actual)
+	}
+}
+
+func TestRelativePath_TrailingSlash(t *testing.T) {
+	impulse := `C:\Users\omccu\GoRhythm\Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
+	root := `C:\Users\omccu\GoRhythm\`
+
+	expected := `Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
+
+	actual, err := relativePath(impulse, root)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if actual != expected {
+		t.Errorf("Expected %s, got %s", expected, actual)
+	}
+}
+
+func TestSplitFolderPath(t *testing.T) {
+	relative := `Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
+
+	expected := []string{"Guitar Hero III", "Bonus", "An Endless Sporadic - Impulse"}
+
+	actual := splitFolderPath(relative)
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Expected %v, got %v", expected, actual)
+	}
+}

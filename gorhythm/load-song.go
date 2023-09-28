@@ -26,6 +26,7 @@ type loadSongModel struct {
 	chart           *loadedChartMsg
 	menuList        list.Model
 	selectedTrack   string
+	backout         bool
 }
 
 type loadedSoundEffectsMsg struct {
@@ -88,15 +89,15 @@ func loadSongSoundsCmd(chartFolderPath string) tea.Cmd {
 }
 
 func loadSoundSounds(chartFolderPath string) (songSounds, error) {
-	songStreamer, songFormat, err := openOggAudioFile(filepath.Join(chartFolderPath, "song.ogg"))
+	songStreamer, songFormat, err := openBufferedOggAudioFile(filepath.Join(chartFolderPath, "song.ogg"))
 	if err != nil {
 		return songSounds{}, err
 	}
-	guitarStreamer, guitarFormat, err := openOggAudioFile(filepath.Join(chartFolderPath, "guitar.ogg"))
+	guitarStreamer, guitarFormat, err := openBufferedOggAudioFile(filepath.Join(chartFolderPath, "guitar.ogg"))
 	if err != nil {
 		return songSounds{}, err
 	}
-	bassStreamer, bassFormat, _ := openOggAudioFile(filepath.Join(chartFolderPath, "rhythm.ogg"))
+	bassStreamer, bassFormat, _ := openBufferedOggAudioFile(filepath.Join(chartFolderPath, "rhythm.ogg"))
 
 	ss := songSounds{guitarStreamer, songStreamer, bassStreamer, songFormat, nil}
 
@@ -220,6 +221,8 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				to := reflect.TypeOf(m.menuList.SelectedItem()).String()
 				panic("selected track is not a trackName " + to)
 			}
+		case "backspace":
+			m.backout = true
 		default:
 			m.menuList, _ = m.menuList.Update(msg)
 		}

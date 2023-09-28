@@ -73,6 +73,10 @@ func (m playSongModel) View() string {
 	multiplier := m.playStats.getMultiplier()
 	scoreAndMultiplier.WriteString("Multiplier: x" + multiplierStyles[multiplier-1].Render(strconv.Itoa(multiplier)) + "            \n")
 
+	if m.playStats.noteStreak > 25 {
+		scoreAndMultiplier.WriteString("Streak: " + strconv.Itoa(m.playStats.noteStreak) + "\n")
+	}
+
 	rockMeter := strings.Builder{}
 
 	red := color{r: 255, g: 0, b: 0}

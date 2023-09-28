@@ -6,9 +6,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/faiface/beep/speaker"
 )
 
 type selectSongModel struct {
@@ -20,6 +22,7 @@ type selectSongModel struct {
 	selectedTrack      string
 	dbAccessor         grDbAccessor
 	songScores         *map[string]songScore
+	previewSound       *sound
 }
 
 type songFolder struct {
@@ -34,6 +37,20 @@ type songFolder struct {
 
 type pauseMenuItem struct {
 	title, desc string
+}
+
+type previewDelayTickMsg struct {
+	previewFilePath string
+}
+
+type previewSongLoadedMsg struct {
+	previewFilePath string
+	previewSound    sound
+}
+
+type previewSongLoadFailedMsg struct {
+	previewFilePath string
+	err             error
 }
 
 func (i *songFolder) Title() string { return i.name }
@@ -196,10 +213,12 @@ func initializeScores(flder *songFolder, ss *map[string]songScore) {
 }
 
 func (m selectSongModel) Init() tea.Cmd {
-	return nil
+	_, cmd := m.checkInitiateSongPreview()
+	return cmd
 }
 
 func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	recheckPreview := false
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -207,6 +226,7 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			i, ok := m.menuList.SelectedItem().(*songFolder)
 			if ok {
 				if i.isLeaf {
+					m = m.clearSongPreview()
 					resultModel := selectSongModel{}
 					resultModel.selectedSongPath = i.path
 					return resultModel, nil
@@ -220,6 +240,7 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.selectedSongFolder = i
 					initializeScores(i, m.songScores)
 					m.menuList.Select(0)
+					recheckPreview = true
 				}
 			}
 		case "backspace":
@@ -236,12 +257,118 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.menuList.Title = m.selectedSongFolder.parent.name
 				m.menuList.Select(indexOfSelected)
 				m.selectedSongFolder = m.selectedSongFolder.parent
+				recheckPreview = true
 			}
 		default:
 			m.menuList, _ = m.menuList.Update(msg)
+			if msg.String() == "up" || msg.String() == "down" ||
+				msg.String() == "left" || msg.String() == "right" {
+				recheckPreview = true
+			}
+		}
+	case previewSongLoadedMsg:
+		hcf := m.highlightedChildFolder()
+		if hcf != nil && hcf.previewFilePath() == msg.previewFilePath {
+			speaker.Init(msg.previewSound.format.SampleRate, msg.previewSound.format.SampleRate.N(time.Second/10))
+			speaker.Play(msg.previewSound.soundStream)
+			m.previewSound = &msg.previewSound
+		} else {
+			// no longer needed. user is viewing different song
+			msg.previewSound.close()
+		}
+	case previewDelayTickMsg:
+
+		hcf := m.highlightedChildFolder()
+		if hcf != nil && hcf.previewFilePath() == msg.previewFilePath {
+			return m, loadPreviewSongCmd(msg.previewFilePath)
 		}
 	}
-	// m.pauseMenuList, cmd = m.pauseMenuList.Update(msg)
-	// i, ok := m.menuList.SelectedItem().(pauseMenuItem)
+
+	if recheckPreview {
+		m, pCmd := m.checkInitiateSongPreview()
+		return m, pCmd
+	}
 	return m, nil
+}
+
+func (m selectSongModel) checkInitiateSongPreview() (tea.Model, tea.Cmd) {
+	m = m.clearSongPreview()
+	sf := m.highlightedChildFolder()
+	if sf != nil {
+		if sf.isLeaf {
+			return m, tea.Tick(time.Second/4, func(t time.Time) tea.Msg {
+				return previewDelayTickMsg{sf.previewFilePath()}
+			})
+		}
+	}
+	return m, nil
+}
+
+func (m selectSongModel) clearSongPreview() selectSongModel {
+	if m.previewSound != nil {
+		speaker.Clear()
+		m.previewSound.close()
+		m.previewSound = nil
+	}
+	return m
+}
+
+// func (m selectSongModel) checkSongPreview() (tea.Model, tea.Cmd) {
+// 	m = m.clearSongPreview()
+// 	sf := m.highlightedChildFolder()
+// 	if sf != nil {
+// 		if sf.isLeaf {
+// 			previewSoundPath := sf.previewFilePath()
+// 			return m, loadPreviewSongCmd(previewSoundPath)
+// 		}
+// 	}
+// 	return m, nil
+// }
+
+func (sf *songFolder) previewFilePath() string {
+	return filepath.Join(sf.path, "preview.ogg")
+}
+
+func (m selectSongModel) highlightedChildFolder() *songFolder {
+	return m.menuList.SelectedItem().(*songFolder)
+}
+
+func loadPreviewSongCmd(previewFilePath string) tea.Cmd {
+	return func() tea.Msg {
+		s, format, err := openBufferedOggAudioFile(previewFilePath)
+		if err != nil {
+			return previewSongLoadFailedMsg{previewFilePath, err}
+		} else {
+			return previewSongLoadedMsg{previewFilePath, sound{s, format}}
+		}
+	}
+}
+
+func (m selectSongModel) highlightSongAbsolutePath(absolutePath string) (selectSongModel, error) {
+	relative, err := relativePath(absolutePath, m.rootSongFolder.path)
+	if err != nil {
+		return m, err
+	}
+	// navigate to the song in the tree
+	m = m.highlightSongRelativePath(relative)
+	return m, nil
+}
+
+func (m selectSongModel) highlightSongRelativePath(relativePath string) selectSongModel {
+	folders := splitFolderPath(relativePath)
+	songFolder := m.rootSongFolder.queryFolder(folders)
+	if songFolder != nil {
+		m.selectedSongFolder = songFolder.parent
+	}
+
+	indexToSelect := 0
+	for i, f := range m.selectedSongFolder.subFolders {
+		if f == songFolder {
+			indexToSelect = i
+			break
+		}
+	}
+
+	m.menuList.Select(indexToSelect)
+	return m
 }
