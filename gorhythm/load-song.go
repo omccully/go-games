@@ -209,6 +209,7 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selectTrackMenuList.SetFilteringEnabled(false)
 			selectTrackMenuList.SetShowHelp(false)
 			selectTrackMenuList.DisableQuitKeybindings()
+			setupKeymapForList(&selectTrackMenuList)
 			m.menuList = selectTrackMenuList
 		}
 	case tea.KeyMsg:

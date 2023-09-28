@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/log"
 )
 
 const (
@@ -121,6 +122,8 @@ func (m mainModel) onQuit() {
 
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if isForceQuitMsg(msg) {
+		log.Info("Force quit")
+		println("Force quit")
 		m.onQuit()
 		return m, tea.Quit
 	}

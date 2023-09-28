@@ -51,7 +51,13 @@ func (m playSongModel) View() string {
 						r.WriteString(noteStyles[noteType].Render("---"))
 					}
 				} else {
-					r.WriteString("   ")
+					isHeldNote := line.HeldNotes[noteType]
+					if isHeldNote && i < strumLineIndex {
+						r.WriteString(noteStyles[noteType].Render(" | "))
+					} else {
+						r.WriteString("   ")
+					}
+
 				}
 			}
 
@@ -63,7 +69,7 @@ func (m playSongModel) View() string {
 		}
 
 		r.WriteString(" | ")
-		r.WriteString(strconv.Itoa(line.DisplayTimeMs))
+		//r.WriteString(strconv.Itoa(line.DisplayTimeMs))
 		r.WriteRune('\n')
 	}
 

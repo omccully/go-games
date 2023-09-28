@@ -15,6 +15,7 @@ import (
 type sound struct {
 	soundStream beep.StreamSeeker
 	format      beep.Format
+	filePath    string
 }
 
 type soundEffects struct {

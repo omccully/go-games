@@ -9,6 +9,7 @@ type playStats struct {
 	noteStreak          int
 	rockMeter           float64 // 0.0 = failed, 1.0 = max
 	score               int
+	bestNoteStreak      int
 	failed              bool
 }
 
@@ -36,6 +37,9 @@ func noteSizeMultiplier(noteSize int) float64 {
 func (ps *playStats) hitNote(noteSize int) {
 	ps.notesHit += noteSize
 	ps.noteStreak += noteSize
+	if ps.noteStreak > ps.bestNoteStreak {
+		ps.bestNoteStreak = ps.noteStreak
+	}
 	ps.increaseRockMeter(rockMeterIncrement * noteSizeMultiplier(noteSize))
 	ps.score += pointsPerNote * noteSize * ps.getMultiplier()
 }

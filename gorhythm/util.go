@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/charmbracelet/bubbles/list"
 )
 
 func sortTracks(tracks []string) []trackName {
@@ -92,4 +94,22 @@ func getDifficultyValue(difficulty string) int {
 	default:
 		return 4
 	}
+}
+
+func pluralizeWithS(count int, singular string) string {
+	return pluralize(count, singular, singular+"s")
+}
+
+func pluralize(count int, singular string, plural string) string {
+	if count == 1 {
+		return singular
+	}
+	return plural
+}
+
+func setupKeymapForList(list *list.Model) {
+	list.KeyMap.NextPage.SetKeys("right", "d")
+	list.KeyMap.PrevPage.SetKeys("left", "a")
+	list.KeyMap.CursorDown.SetKeys("down", "s")
+	list.KeyMap.CursorUp.SetKeys("up", "w")
 }

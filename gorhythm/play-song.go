@@ -39,6 +39,7 @@ type NoteColors [5]bool
 
 type NoteLine struct {
 	NoteColors [5]bool
+	HeldNotes  [5]bool
 	// debug info
 	DisplayTimeMs int
 }
@@ -89,7 +90,7 @@ func createModelFromChart(chart *Chart, trackName string, stngs settings) playSo
 
 	return playSongModel{chart, chartInfo{}, playableNotes, startTime, 0,
 		stngs,
-		playStats{-1, len(playableNotes), 0, 0, 0.5, 0, false},
+		playStats{-1, len(playableNotes), 0, 0, 0.5, 0, 0, false},
 		0, viewModel{}, songSounds{}, soundEffects{}, false}
 }
 
@@ -117,6 +118,7 @@ func (m playSongModel) CreateCurrentNoteChart() viewModel {
 	latestNotPrintedNoteIndex := m.nextNoteIndex - 1
 	for i := 0; i < m.settings.fretBoardHeight; i++ {
 		var noteColors NoteColors = NoteColors{false, false, false, false, false}
+		var heldNotes [5]bool = [5]bool{false, false, false, false, false}
 		for j := latestNotPrintedNoteIndex; j >= 0; j-- {
 			note := m.realTimeNotes[j]
 
@@ -127,12 +129,28 @@ func (m playSongModel) CreateCurrentNoteChart() viewModel {
 
 				latestNotPrintedNoteIndex = j - 1
 			} else {
+				chord := []playableNote{note}
+				for ci := j - 1; ci >= 0; ci-- {
+					if m.realTimeNotes[ci].TimeStamp == note.TimeStamp {
+						chord = append(chord, m.realTimeNotes[ci])
+					} else {
+						break
+					}
+				}
+
+				for _, chordNote := range chord {
+
+					if chordNote.TimeStamp+int(chordNote.ExtraData-100) >= displayTimeMs {
+						heldNotes[chordNote.NoteType] = true
+					}
+				}
+
 				latestNotPrintedNoteIndex = j
 				break
 			}
 		}
 
-		result = append(result, NoteLine{noteColors, displayTimeMs})
+		result = append(result, NoteLine{noteColors, heldNotes, displayTimeMs})
 
 		displayTimeMs -= lineTimeMs
 	}

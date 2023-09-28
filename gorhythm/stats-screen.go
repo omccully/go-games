@@ -92,6 +92,7 @@ func (m statsScreenModel) View() string {
 		sb.WriteString("Percentage: " + fmt.Sprintf("%.0f", m.playStats.percentage()*100) + "%\n")
 		sb.WriteString("Score: " + fmt.Sprintf("%d", m.playStats.score) + "\n")
 		sb.WriteString("Notes hit: " + fmt.Sprintf("%d/%d", m.playStats.notesHit, m.playStats.totalNotes) + "\n")
+		sb.WriteString("Best note streak: " + fmt.Sprintf("%d", m.playStats.bestNoteStreak) + "\n")
 	}
 
 	if m.saveSongScoreError != nil {

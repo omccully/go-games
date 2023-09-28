@@ -62,13 +62,13 @@ func (i *songFolder) Description() string {
 			b.WriteString(strconv.Itoa(v.Score))
 			b.WriteString(fmt.Sprintf(" (%.0f%%)", v.percentage()*100))
 			b.WriteRune(' ')
-			b.WriteString(starString(calcStars(v.Score, v.TotalNotes)))
+			b.WriteString(starStyle.Render(starString(calcStars(v.Score, v.TotalNotes))))
 			first = false
 		}
 
 		return b.String()
 	} else {
-		return strconv.Itoa(i.songCount) + " songs"
+		return strconv.Itoa(i.songCount) + " " + pluralizeWithS(i.songCount, "song")
 	}
 }
 func (i *songFolder) FilterValue() string { return i.name }
@@ -92,6 +92,7 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 	selectSongMenuList.SetFilteringEnabled(false)
 	selectSongMenuList.SetShowHelp(false)
 	selectSongMenuList.DisableQuitKeybindings()
+	setupKeymapForList(&selectSongMenuList)
 	model.menuList = selectSongMenuList
 
 	model.dbAccessor = dbAccessor
@@ -161,12 +162,9 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			var mlCmd tea.Cmd
 			m.menuList, mlCmd = m.menuList.Update(msg)
-			if msg.String() == "up" || msg.String() == "down" ||
-				msg.String() == "left" || msg.String() == "right" {
-				m, pCmd := m.checkInitiateSongPreview()
-				return m, tea.Batch(mlCmd, pCmd)
-			}
-			return m, mlCmd
+			m, spCmd := m.checkInitiateSongPreview()
+
+			return m, tea.Batch(mlCmd, spCmd)
 		}
 	case previewSongLoadedMsg:
 		hcf := m.highlightedChildFolder()
@@ -197,10 +195,11 @@ func (m selectSongModel) setSelectedSongFolder(sf *songFolder, highlightedSubFol
 	m.menuList.SetItems(listItems)
 
 	relativePath, err := sf.relativePath()
+	suffix := fmt.Sprintf(" (%d songs)", sf.songCount)
 	if err != nil || relativePath == "" {
-		m.menuList.Title = sf.name
+		m.menuList.Title = sf.name + suffix
 	} else {
-		m.menuList.Title = strings.Replace(relativePath, "\\", "/", -1)
+		m.menuList.Title = strings.Replace(relativePath, "\\", "/", -1) + suffix
 	}
 
 	m.selectedSongFolder = sf
@@ -222,14 +221,19 @@ func (m selectSongModel) setSelectedSongFolder(sf *songFolder, highlightedSubFol
 }
 
 func (m selectSongModel) checkInitiateSongPreview() (selectSongModel, tea.Cmd) {
-	m = m.clearSongPreview()
 	sf := m.highlightedChildFolder()
 	if sf != nil {
 		if sf.isLeaf {
-			return m, tea.Tick(time.Second/4, func(t time.Time) tea.Msg {
-				return previewDelayTickMsg{sf.previewFilePath()}
-			})
+			if m.previewSound == nil || m.previewSound.filePath != sf.previewFilePath() {
+				return m, tea.Tick(time.Second/4, func(t time.Time) tea.Msg {
+					return previewDelayTickMsg{sf.previewFilePath()}
+				})
+			}
+		} else {
+			m = m.clearSongPreview()
 		}
+	} else {
+		m = m.clearSongPreview()
 	}
 	return m, nil
 }
@@ -257,7 +261,7 @@ func loadPreviewSongCmd(previewFilePath string) tea.Cmd {
 		if err != nil {
 			return previewSongLoadFailedMsg{previewFilePath, err}
 		} else {
-			return previewSongLoadedMsg{previewFilePath, sound{s, format}}
+			return previewSongLoadedMsg{previewFilePath, sound{s, format, previewFilePath}}
 		}
 	}
 }
