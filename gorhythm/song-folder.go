@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 type songFolder struct {
@@ -19,6 +22,36 @@ func (fldr *songFolder) relativePath() (string, error) {
 
 	return relativePath(fldr.path, fldr.root().path)
 }
+
+func (i *songFolder) Title() string { return i.name }
+func (i *songFolder) Description() string {
+	if i.isLeaf {
+		b := strings.Builder{}
+		first := true
+
+		if len(i.songScore.TrackScores) == 0 {
+			return "Never passed"
+		}
+
+		for k, v := range i.songScore.TrackScores {
+			if !first {
+				b.WriteString(", ")
+			}
+			b.WriteString(k)
+			b.WriteString(": ")
+			b.WriteString(strconv.Itoa(v.Score))
+			b.WriteString(fmt.Sprintf(" (%.0f%%)", v.percentage()*100))
+			b.WriteRune(' ')
+			b.WriteString(starStyle.Render(starString(calcStars(v.Score, v.TotalNotes))))
+			first = false
+		}
+
+		return b.String()
+	} else {
+		return strconv.Itoa(i.songCount) + " " + pluralizeWithS(i.songCount, "song")
+	}
+}
+func (i *songFolder) FilterValue() string { return i.name }
 
 func (fldr *songFolder) root() *songFolder {
 	if fldr.parent == nil {

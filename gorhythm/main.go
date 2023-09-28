@@ -17,7 +17,8 @@ const (
 type sessionState int
 
 const (
-	chooseSong sessionState = iota
+	initialLoad sessionState = iota
+	chooseSong
 	loadSong
 	playSong
 	statsScreen
@@ -48,16 +49,6 @@ func defaultSettings() settings {
 }
 
 func initialMainModel() mainModel {
-	chartFolderPath := ""
-	if len(os.Args) > 1 {
-		chartFolderPath = os.Args[1]
-	}
-
-	track := "MediumSingle"
-	if len(os.Args) > 2 {
-		track = os.Args[2]
-	}
-
 	lineTime := 30 * time.Millisecond
 	strumTolerance := 100 * time.Millisecond
 	fretboardHeight := 35
@@ -68,51 +59,38 @@ func initialMainModel() mainModel {
 		panic("GORHYTHM_SONGS_PATH not set")
 	}
 
-	err := createDataFolderIfDoesntExist()
-	if err != nil {
-		panic(err)
+	return mainModel{
+		state:        initialLoad,
+		songRootPath: songRootPath,
+		settings:     settings,
 	}
-	db, err := openDefaultDbConnection()
-	if err != nil {
-		panic(err)
-	}
-	_, err = db.migrateDatabase()
-	if err != nil {
-		panic(err)
-	}
-
-	if chartFolderPath == "" {
-		return mainModel{
-			state:           chooseSong,
-			selectSongModel: initialSelectSongModel(songRootPath, db, settings),
-			songRootPath:    songRootPath,
-			dbAccessor:      db,
-			settings:        settings,
-		}
-	} else {
-		loadModel := initialLoadModel(chartFolderPath, track, settings)
-		return mainModel{
-			state:         loadSong,
-			loadSongModel: loadModel,
-			songRootPath:  songRootPath,
-			dbAccessor:    db,
-			settings:      settings,
-		}
-	}
-}
-
-func (m mainModel) innerInit() tea.Cmd {
-	switch m.state {
-	case chooseSong:
-		return m.selectSongModel.Init()
-	case playSong:
-		return m.playSongModel.Init()
-	}
-	return nil
 }
 
 func (m mainModel) Init() tea.Cmd {
-	return tea.Batch(tea.EnterAltScreen, m.innerInit())
+	return tea.Batch(tea.EnterAltScreen, initializeDbCmd())
+}
+
+type dbInitializedMsg struct {
+	dbAccessor grDbAccessor
+	err        error
+}
+
+func initializeDbCmd() tea.Cmd {
+	return func() tea.Msg {
+		err := createDataFolderIfDoesntExist()
+		if err != nil {
+			return dbInitializedMsg{nil, err}
+		}
+		db, err := openDefaultDbConnection()
+		if err != nil {
+			return dbInitializedMsg{nil, err}
+		}
+		_, err = db.migrateDatabase()
+		if err != nil {
+			return dbInitializedMsg{nil, err}
+		}
+		return dbInitializedMsg{db, nil}
+	}
 }
 
 func (m mainModel) onQuit() {
@@ -123,7 +101,6 @@ func (m mainModel) onQuit() {
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if isForceQuitMsg(msg) {
 		log.Info("Force quit")
-		println("Force quit")
 		m.onQuit()
 		return m, tea.Quit
 	}
@@ -132,6 +109,14 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.settings.fretBoardHeight = msg.Height - 3
 		return m, nil
+	case dbInitializedMsg:
+		if msg.err != nil {
+			panic(msg.err)
+		}
+		m.dbAccessor = msg.dbAccessor
+		m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
+		m.state = chooseSong
+		return m, m.selectSongModel.Init()
 	}
 
 	switch m.state {
@@ -219,6 +204,8 @@ func splitFolderPath(folderPath string) []string {
 
 func (m mainModel) View() string {
 	switch m.state {
+	case initialLoad:
+		return "Loading database..."
 	case chooseSong:
 		return m.selectSongModel.View()
 	case loadSong:

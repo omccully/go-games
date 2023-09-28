@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,17 +15,12 @@ import (
 type selectSongModel struct {
 	rootSongFolder     *songFolder
 	selectedSongFolder *songFolder
+	rootPath           string
 	menuList           list.Model
 	selectedSongPath   string
-	selectedChart      *Chart
-	selectedTrack      string
 	dbAccessor         grDbAccessor
 	songScores         *map[string]songScore
 	previewSound       *sound
-}
-
-type pauseMenuItem struct {
-	title, desc string
 }
 
 type previewDelayTickMsg struct {
@@ -43,50 +37,11 @@ type previewSongLoadFailedMsg struct {
 	err             error
 }
 
-func (i *songFolder) Title() string { return i.name }
-func (i *songFolder) Description() string {
-	if i.isLeaf {
-		b := strings.Builder{}
-		first := true
-
-		if len(i.songScore.TrackScores) == 0 {
-			return "Never passed"
-		}
-
-		for k, v := range i.songScore.TrackScores {
-			if !first {
-				b.WriteString(", ")
-			}
-			b.WriteString(k)
-			b.WriteString(": ")
-			b.WriteString(strconv.Itoa(v.Score))
-			b.WriteString(fmt.Sprintf(" (%.0f%%)", v.percentage()*100))
-			b.WriteRune(' ')
-			b.WriteString(starStyle.Render(starString(calcStars(v.Score, v.TotalNotes))))
-			first = false
-		}
-
-		return b.String()
-	} else {
-		return strconv.Itoa(i.songCount) + " " + pluralizeWithS(i.songCount, "song")
-	}
-}
-func (i *songFolder) FilterValue() string { return i.name }
-
 func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings) selectSongModel {
 	model := selectSongModel{}
 
-	model.rootSongFolder = loadSongFolder(rootPath)
-	model.selectedSongFolder = model.rootSongFolder
-	initializeScores(model.selectedSongFolder, model.songScores)
-
 	listItems := []list.Item{}
-	for _, f := range model.rootSongFolder.subFolders {
-		listItems = append(listItems, f)
-	}
-
 	selectSongMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
-	selectSongMenuList.Title = "All Songs"
 	selectSongMenuList.SetSize(70, settings.fretBoardHeight-5)
 	selectSongMenuList.SetShowStatusBar(false)
 	selectSongMenuList.SetFilteringEnabled(false)
@@ -96,13 +51,7 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 	model.menuList = selectSongMenuList
 
 	model.dbAccessor = dbAccessor
-
-	ss, err := dbAccessor.getVerifiedSongScores()
-	if err != nil {
-		panic(err)
-	}
-	model.songScores = ss
-
+	model.rootPath = rootPath
 	return model
 }
 
@@ -132,9 +81,36 @@ func initializeScores(flder *songFolder, ss *map[string]songScore) {
 	}
 }
 
+type trackScoresLoadedMsg struct {
+	trackScores *map[string]songScore
+}
+
+type songFoldersLoadedMsg struct {
+	rootSongFolder *songFolder
+}
+
+func initializeSongFoldersCmd(rootPath string) tea.Cmd {
+	return func() tea.Msg {
+		// return songFoldersLoadedMsg{}
+		return songFoldersLoadedMsg{loadSongFolder(rootPath)}
+	}
+}
+
+func initializeTrackScoresCmd(dbAccessor grDbAccessor) tea.Cmd {
+	return func() tea.Msg {
+		ss, err := dbAccessor.getVerifiedSongScores()
+		if err != nil {
+			panic(err)
+		}
+		return trackScoresLoadedMsg{ss}
+	}
+}
+
 func (m selectSongModel) Init() tea.Cmd {
-	_, cmd := m.checkInitiateSongPreview()
-	return cmd
+	//eturn nil
+	//return initializeSongFoldersCmd(m.rootPath)
+	//return initializeTrackScoresCmd(m.dbAccessor)
+	return tea.Batch(initializeSongFoldersCmd(m.rootPath), initializeTrackScoresCmd(m.dbAccessor))
 }
 
 func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -181,6 +157,22 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		hcf := m.highlightedChildFolder()
 		if hcf != nil && hcf.previewFilePath() == msg.previewFilePath {
 			return m, loadPreviewSongCmd(msg.previewFilePath)
+		}
+	case songFoldersLoadedMsg:
+		if msg.rootSongFolder == nil {
+			return m, nil
+		}
+		m.rootSongFolder = msg.rootSongFolder
+		m.selectedSongFolder = m.rootSongFolder
+		m, cmd := m.setSelectedSongFolder(m.rootSongFolder, nil)
+		if m.loaded() {
+			initializeScores(m.rootSongFolder, m.songScores)
+		}
+		return m, cmd
+	case trackScoresLoadedMsg:
+		m.songScores = msg.trackScores
+		if m.loaded() {
+			initializeScores(m.rootSongFolder, m.songScores)
 		}
 	}
 
@@ -284,4 +276,8 @@ func (m selectSongModel) highlightSongRelativePath(relativePath string) (selectS
 	}
 
 	return m, nil
+}
+
+func (m selectSongModel) loaded() bool {
+	return m.rootSongFolder != nil && m.songScores != nil
 }
