@@ -97,13 +97,8 @@ func TestParseTrackName(t *testing.T) {
 	}
 }
 
-func TestRelativePath(t *testing.T) {
-	impulse := `C:\Users\omccu\GoRhythm\Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
-	root := `C:\Users\omccu\GoRhythm`
-
-	expected := `Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
-
-	actual, err := relativePath(impulse, root)
+func customTestRelativePath(t *testing.T, current string, root string, expected string) {
+	actual, err := relativePath(current, root)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -112,19 +107,49 @@ func TestRelativePath(t *testing.T) {
 	}
 }
 
+func TestRelativePath(t *testing.T) {
+	impulse := `C:\Users\omccu\GoRhythm\Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
+	root := `C:\Users\omccu\GoRhythm`
+
+	expected := `Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
+
+	customTestRelativePath(t, impulse, root, expected)
+}
+
 func TestRelativePath_TrailingSlash(t *testing.T) {
 	impulse := `C:\Users\omccu\GoRhythm\Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
 	root := `C:\Users\omccu\GoRhythm\`
 
 	expected := `Guitar Hero III\Bonus\An Endless Sporadic - Impulse`
 
-	actual, err := relativePath(impulse, root)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if actual != expected {
-		t.Errorf("Expected %s, got %s", expected, actual)
-	}
+	customTestRelativePath(t, impulse, root, expected)
+}
+
+func TestRelativePath_EqualPathWithSlash(t *testing.T) {
+	current := `C:\Users\omccu\GoRhythm\`
+	root := `C:\Users\omccu\GoRhythm\`
+
+	expected := ""
+
+	customTestRelativePath(t, current, root, expected)
+}
+
+func TestRelativePath_EqualPathWithoutSlash(t *testing.T) {
+	current := `C:\Users\omccu\GoRhythm`
+	root := `C:\Users\omccu\GoRhythm`
+
+	expected := ""
+
+	customTestRelativePath(t, current, root, expected)
+}
+
+func TestRelativePath_ShorterPath(t *testing.T) {
+	current := `C:\Users\omccu\GoRhythm`
+	root := `C:\Users\omccu\GoRhythm\`
+
+	expected := ""
+
+	customTestRelativePath(t, current, root, expected)
 }
 
 func TestSplitFolderPath(t *testing.T) {

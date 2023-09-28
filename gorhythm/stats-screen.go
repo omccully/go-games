@@ -85,7 +85,7 @@ func (m statsScreenModel) View() string {
 	sb.WriteRune('\n')
 
 	if m.playStats.failed {
-		sb.WriteString(failedStyle.Render("FAILED!!!\n"))
+		sb.WriteString(failedStyle.Render("FAILED!!!") + "\n")
 		sb.WriteString("Notes hit: " + fmt.Sprintf("%d", m.playStats.notesHit) + "\n")
 	} else {
 		sb.WriteString(starStyle.Render(starString(m.playStats.stars())) + "\n")

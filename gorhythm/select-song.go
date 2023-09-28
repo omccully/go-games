@@ -25,16 +25,6 @@ type selectSongModel struct {
 	previewSound       *sound
 }
 
-type songFolder struct {
-	name       string
-	path       string
-	parent     *songFolder
-	subFolders []*songFolder
-	isLeaf     bool
-	songCount  int
-	songScore  songScore
-}
-
 type pauseMenuItem struct {
 	title, desc string
 }
@@ -115,77 +105,6 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 	return model
 }
 
-func loadSongFolder(p string) *songFolder {
-	folder := songFolder{}
-	folder.name = "All Songs"
-	folder.isLeaf = false
-	folder.path = p
-	folder.subFolders = []*songFolder{}
-	folder.songCount = 0
-
-	populateSongFolder(&folder)
-	trimSongFolders(&folder)
-
-	return &folder
-}
-
-func populateSongFolder(fldr *songFolder) {
-	files, err := os.ReadDir(fldr.path)
-	if err != nil {
-		return
-	}
-
-	for _, f := range files {
-		if f.IsDir() {
-			child := &songFolder{f.Name(), filepath.Join(fldr.path, f.Name()),
-				fldr, []*songFolder{}, false, 0, songScore{}}
-			fldr.subFolders = append(fldr.subFolders, child)
-			populateSongFolder(child)
-		} else {
-			if f.Name() == "notes.chart" || f.Name() == "notes.mid" {
-				incrementSongCount(fldr)
-				fldr.isLeaf = true
-			}
-		}
-	}
-}
-
-func trimSongFolders(fldr *songFolder) {
-	for i := len(fldr.subFolders) - 1; i >= 0; i-- {
-		if fldr.subFolders[i].songCount == 0 {
-			fldr.subFolders = append(fldr.subFolders[:i], fldr.subFolders[i+1:]...)
-		} else {
-			trimSongFolders(fldr.subFolders[i])
-		}
-	}
-}
-
-func (fldr *songFolder) queryFolder(path []string) *songFolder {
-	for _, p := range path {
-		fldr = fldr.getSubfolder(p)
-		if fldr == nil {
-			return nil
-		}
-	}
-	return fldr
-}
-
-func (fldr *songFolder) getSubfolder(name string) *songFolder {
-	for _, f := range fldr.subFolders {
-		if f.name == name {
-			return f
-		}
-	}
-	return nil
-}
-
-func incrementSongCount(fldr *songFolder) {
-	fldr.songCount++
-	if fldr.parent != nil {
-		incrementSongCount(fldr.parent)
-	}
-}
-
 func fileExists(path string) bool {
 	d, err := os.Stat(path)
 	if err != nil && os.IsNotExist(err) {
@@ -218,7 +137,6 @@ func (m selectSongModel) Init() tea.Cmd {
 }
 
 func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	recheckPreview := false
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -231,40 +149,24 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					resultModel.selectedSongPath = i.path
 					return resultModel, nil
 				} else {
-					listItems := []list.Item{}
-					for _, f := range i.subFolders {
-						listItems = append(listItems, f)
-					}
-					m.menuList.SetItems(listItems)
-					m.menuList.Title = i.name
-					m.selectedSongFolder = i
-					initializeScores(i, m.songScores)
-					m.menuList.Select(0)
-					recheckPreview = true
+					// setSelectedSongFolder will also return a command to update the preview sound
+					return m.setSelectedSongFolder(i, nil)
 				}
 			}
 		case "backspace":
 			if m.selectedSongFolder.parent != nil {
-				listItems := []list.Item{}
-				indexOfSelected := 0
-				for i, f := range m.selectedSongFolder.parent.subFolders {
-					listItems = append(listItems, f)
-					if f == m.selectedSongFolder {
-						indexOfSelected = i
-					}
-				}
-				m.menuList.SetItems(listItems)
-				m.menuList.Title = m.selectedSongFolder.parent.name
-				m.menuList.Select(indexOfSelected)
-				m.selectedSongFolder = m.selectedSongFolder.parent
-				recheckPreview = true
+				// setSelectedSongFolder will also return a command to update the preview sound
+				return m.setSelectedSongFolder(m.selectedSongFolder.parent, m.selectedSongFolder)
 			}
 		default:
-			m.menuList, _ = m.menuList.Update(msg)
+			var mlCmd tea.Cmd
+			m.menuList, mlCmd = m.menuList.Update(msg)
 			if msg.String() == "up" || msg.String() == "down" ||
 				msg.String() == "left" || msg.String() == "right" {
-				recheckPreview = true
+				m, pCmd := m.checkInitiateSongPreview()
+				return m, tea.Batch(mlCmd, pCmd)
 			}
+			return m, mlCmd
 		}
 	case previewSongLoadedMsg:
 		hcf := m.highlightedChildFolder()
@@ -284,14 +186,42 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if recheckPreview {
-		m, pCmd := m.checkInitiateSongPreview()
-		return m, pCmd
-	}
 	return m, nil
 }
 
-func (m selectSongModel) checkInitiateSongPreview() (tea.Model, tea.Cmd) {
+func (m selectSongModel) setSelectedSongFolder(sf *songFolder, highlightedSubFolder *songFolder) (selectSongModel, tea.Cmd) {
+	listItems := []list.Item{}
+	for _, f := range sf.subFolders {
+		listItems = append(listItems, f)
+	}
+	m.menuList.SetItems(listItems)
+
+	relativePath, err := sf.relativePath()
+	if err != nil || relativePath == "" {
+		m.menuList.Title = sf.name
+	} else {
+		m.menuList.Title = strings.Replace(relativePath, "\\", "/", -1)
+	}
+
+	m.selectedSongFolder = sf
+	initializeScores(sf, m.songScores)
+
+	indexOfHighlighted := 0
+	if highlightedSubFolder != nil {
+		for i, f := range sf.subFolders {
+			if f == highlightedSubFolder {
+				indexOfHighlighted = i
+			}
+		}
+	}
+
+	m.menuList.Select(indexOfHighlighted)
+
+	m, pCmd := m.checkInitiateSongPreview()
+	return m, pCmd
+}
+
+func (m selectSongModel) checkInitiateSongPreview() (selectSongModel, tea.Cmd) {
 	m = m.clearSongPreview()
 	sf := m.highlightedChildFolder()
 	if sf != nil {
@@ -313,18 +243,6 @@ func (m selectSongModel) clearSongPreview() selectSongModel {
 	return m
 }
 
-// func (m selectSongModel) checkSongPreview() (tea.Model, tea.Cmd) {
-// 	m = m.clearSongPreview()
-// 	sf := m.highlightedChildFolder()
-// 	if sf != nil {
-// 		if sf.isLeaf {
-// 			previewSoundPath := sf.previewFilePath()
-// 			return m, loadPreviewSongCmd(previewSoundPath)
-// 		}
-// 	}
-// 	return m, nil
-// }
-
 func (sf *songFolder) previewFilePath() string {
 	return filepath.Join(sf.path, "preview.ogg")
 }
@@ -344,31 +262,22 @@ func loadPreviewSongCmd(previewFilePath string) tea.Cmd {
 	}
 }
 
-func (m selectSongModel) highlightSongAbsolutePath(absolutePath string) (selectSongModel, error) {
+func (m selectSongModel) highlightSongAbsolutePath(absolutePath string) (selectSongModel, tea.Cmd, error) {
 	relative, err := relativePath(absolutePath, m.rootSongFolder.path)
 	if err != nil {
-		return m, err
+		return m, nil, err
 	}
 	// navigate to the song in the tree
-	m = m.highlightSongRelativePath(relative)
-	return m, nil
+	m, cmd := m.highlightSongRelativePath(relative)
+	return m, cmd, nil
 }
 
-func (m selectSongModel) highlightSongRelativePath(relativePath string) selectSongModel {
+func (m selectSongModel) highlightSongRelativePath(relativePath string) (selectSongModel, tea.Cmd) {
 	folders := splitFolderPath(relativePath)
 	songFolder := m.rootSongFolder.queryFolder(folders)
 	if songFolder != nil {
-		m.selectedSongFolder = songFolder.parent
+		return m.setSelectedSongFolder(songFolder.parent, songFolder)
 	}
 
-	indexToSelect := 0
-	for i, f := range m.selectedSongFolder.subFolders {
-		if f == songFolder {
-			indexToSelect = i
-			break
-		}
-	}
-
-	m.menuList.Select(indexToSelect)
-	return m
+	return m, nil
 }

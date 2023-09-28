@@ -332,6 +332,7 @@ func (m playSongModel) setGuitarSilent(silent bool) {
 }
 
 func (m playSongModel) OnQuit() {
+	speaker.Clear()
 	closeSoundStreams(m.songSounds)
 }
 
@@ -358,19 +359,22 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		}
 
+		if m.playStats.failed {
+			m.OnQuit()
+			return m, nil
+		}
+
 		return m, timerCmd(sleepTime)
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "1":
-			m = m.playNoteNow(0)
-		case "2":
-			m = m.playNoteNow(1)
-		case "3":
-			m = m.playNoteNow(2)
-		case "4":
-			m = m.playNoteNow(3)
-		case "5":
-			m = m.playNoteNow(4)
+		keyName := msg.String()
+		if len(keyName) == 1 && ('1' <= keyName[0] && keyName[0] <= '5') {
+			noteIndex := int(keyName[0] - '1')
+			m = m.playNoteNow(noteIndex)
+
+			if m.playStats.failed {
+				m.OnQuit()
+				return m, nil
+			}
 		}
 	case tea.WindowSizeMsg:
 		m.settings.fretBoardHeight = msg.Height - 3

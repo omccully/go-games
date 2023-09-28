@@ -11,14 +11,17 @@ type chartInfo struct {
 }
 
 func relativePath(fullPath string, parentPath string) (string, error) {
+	fullPath = filepath.Clean(fullPath)
+	parentPath = filepath.Clean(parentPath)
+
 	if fullPath[:len(parentPath)] != parentPath {
 		return "", fmt.Errorf("parent path %s is not a parent of %s", parentPath, fullPath)
 	}
-	lastChar := parentPath[len(parentPath)-1]
-	trailingSlash := lastChar == '/' || lastChar == '\\'
-	if trailingSlash {
-		return fullPath[len(parentPath):], nil
+
+	if len(parentPath) == len(fullPath) {
+		return "", nil
 	}
+
 	return fullPath[len(parentPath)+1:], nil
 }
 

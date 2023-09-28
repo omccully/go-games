@@ -13,22 +13,40 @@ type playStats struct {
 }
 
 const rockMeterIncrement = 0.02
+const rockMeterDecrement = 0.03
 const pointsPerNote = 50
+
+func noteSizeMultiplier(noteSize int) float64 {
+	switch noteSize {
+	case 1:
+		return 1.0
+	case 2:
+		return 1.5
+	case 3:
+		return 2.0
+	case 4:
+		return 2.5
+	case 5:
+		return 3.0
+	default:
+		return 2.0
+	}
+}
 
 func (ps *playStats) hitNote(noteSize int) {
 	ps.notesHit += noteSize
 	ps.noteStreak += noteSize
-	ps.increaseRockMeter(rockMeterIncrement * float64(noteSize))
+	ps.increaseRockMeter(rockMeterIncrement * noteSizeMultiplier(noteSize))
 	ps.score += pointsPerNote * noteSize * ps.getMultiplier()
 }
 
 func (ps *playStats) missNote(noteSize int) {
-	ps.decreaseRockMeter(rockMeterIncrement * float64(noteSize))
+	ps.decreaseRockMeter(rockMeterDecrement * noteSizeMultiplier(noteSize))
 	ps.noteStreak = 0
 }
 
 func (ps *playStats) overhitNote() {
-	ps.decreaseRockMeter(rockMeterIncrement * float64(1))
+	ps.decreaseRockMeter(rockMeterDecrement * noteSizeMultiplier(1))
 	ps.noteStreak = 0
 }
 
