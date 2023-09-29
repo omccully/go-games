@@ -7,9 +7,14 @@ import (
 )
 
 var bannerStyle = lipgloss.NewStyle().
-	// Background(lipgloss.Color()).
-	Padding(1, 3, 1, 3).
+	Foreground(lipgloss.Color(logoColor)).
+	Bold(true)
+
+var songListStyle = lipgloss.NewStyle().
+	Padding(1, 2, 1, 2).
 	Border(lipgloss.RoundedBorder()).
+	BorderForeground(lipgloss.Color("#f0f007")).
+	Width(70).
 	Bold(true)
 
 func (m selectSongModel) View() string {
@@ -27,13 +32,10 @@ func (m selectSongModel) View() string {
 		} else {
 			r.WriteString("Loaded scores\n")
 		}
-		// r.WriteString()"Loading.. hmm.. ..."
 		return r.String()
 	}
 
-	r.WriteString(bannerStyle.Render("Terminal Hero") + "\n\n")
-
-	// r.WriteString("Select song\n")
-	r.WriteString(m.menuList.View())
+	r.WriteString(bannerStyle.Render(loadAsciiArt("terminalhero.txt")) + "\n\n")
+	r.WriteString(songListStyle.Render(m.menuList.View()))
 	return r.String()
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"time"
 
@@ -218,6 +219,15 @@ func (m mainModel) View() string {
 		return m.statsScreenModel.View()
 	}
 	return "No view"
+}
+
+func loadAsciiArt(fileName string) string {
+	fullPath := filepath.Join("ascii-art", fileName)
+	file, err := os.ReadFile(fullPath)
+	if err != nil {
+		panic(err)
+	}
+	return string(file)
 }
 
 func isForceQuitMsg(msg tea.Msg) bool {

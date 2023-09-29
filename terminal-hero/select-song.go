@@ -40,13 +40,26 @@ type previewSongLoadFailedMsg struct {
 func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings) selectSongModel {
 	model := selectSongModel{}
 
-	listItems := []list.Item{}
-	selectSongMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
-	selectSongMenuList.SetSize(70, settings.fretBoardHeight-5)
+	selectSongMenuList := list.New([]list.Item{}, createListDd(), 0, 0)
+	selectSongMenuList.SetSize(70, settings.fretBoardHeight-7)
 	selectSongMenuList.SetShowStatusBar(false)
 	selectSongMenuList.SetFilteringEnabled(false)
 	selectSongMenuList.SetShowHelp(false)
 	selectSongMenuList.DisableQuitKeybindings()
+
+	// lightningBoltSideBorder := lipgloss.Border{
+	// 	Left:  "🗲",
+	// 	Right: "🗲",
+	// }
+	// lipgloss.NewStyle().
+	// 	Foreground(lipgloss.Color("#f0f007")).
+	// 	Bold(true).
+	// 	BorderForeground(lipgloss.Color("#ee6ff8")).
+	// 	BorderStyle(lightningBoltSideBorder).
+	// 	BorderBottom(false).BorderTop(false).BorderLeft(true).BorderRight(true).
+	// 	Padding(0, 1, 0, 1)
+	styleList(&selectSongMenuList)
+	// selectSongMenuList.Styles.Title = listTitleStyle
 	setupKeymapForList(&selectSongMenuList)
 	model.menuList = selectSongMenuList
 
@@ -256,7 +269,7 @@ func loadPreviewSongCmd(previewFilePath string) tea.Cmd {
 }
 
 func (m selectSongModel) highlightSongAbsolutePath(absolutePath string) (selectSongModel, tea.Cmd, error) {
-	relative, err := relativePath(absolutePath, m.rootSongFolder.path)
+	relative, err := relativePath(absolutePath, m.rootPath)
 	if err != nil {
 		return m, nil, err
 	}

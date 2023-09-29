@@ -19,7 +19,6 @@ type songFolder struct {
 }
 
 func (fldr *songFolder) relativePath() (string, error) {
-
 	return relativePath(fldr.path, fldr.root().path)
 }
 

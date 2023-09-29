@@ -202,13 +202,14 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				listItems[i] = track
 			}
 
-			selectTrackMenuList := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
+			selectTrackMenuList := list.New(listItems, createListDd(), 0, 0)
 			selectTrackMenuList.Title = "Select Track"
-			selectTrackMenuList.SetSize(m.settings.fretBoardHeight-10, 25)
+			selectTrackMenuList.SetSize(25, m.settings.fretBoardHeight-7)
 			selectTrackMenuList.SetShowStatusBar(false)
 			selectTrackMenuList.SetFilteringEnabled(false)
 			selectTrackMenuList.SetShowHelp(false)
 			selectTrackMenuList.DisableQuitKeybindings()
+			styleList(&selectTrackMenuList)
 			setupKeymapForList(&selectTrackMenuList)
 			m.menuList = selectTrackMenuList
 		}
