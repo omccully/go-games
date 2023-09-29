@@ -96,6 +96,16 @@ func getDifficultyValue(difficulty string) int {
 	}
 }
 
+func instrumentDisplayName(instrument string) string {
+	switch instrument {
+	case "Guitar":
+		return "Guitar 🎸"
+	case "Drums":
+		return "Drums 🥁"
+	}
+	return instrument
+}
+
 func getDifficultyDisplayName(difficulty string) string {
 	switch difficulty {
 	case "Easy":
@@ -105,7 +115,7 @@ func getDifficultyDisplayName(difficulty string) string {
 	case "Hard":
 		return "Hard"
 	case "Expert":
-		return "💀 Expert"
+		return "Expert 💀"
 	default:
 		return difficulty
 	}

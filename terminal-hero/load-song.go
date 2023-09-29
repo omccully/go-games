@@ -53,7 +53,7 @@ type trackName struct {
 }
 
 func (i trackName) Title() string {
-	return i.instrument + " -- " + getDifficultyDisplayName(i.difficulty)
+	return instrumentDisplayName(i.instrument) + " -- " + getDifficultyDisplayName(i.difficulty)
 }
 func (i trackName) Description() string {
 	return ""
