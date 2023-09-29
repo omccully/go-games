@@ -213,6 +213,7 @@ func (m selectSongModel) setSelectedSongFolder(sf *songFolder, highlightedSubFol
 }
 
 func (m selectSongModel) checkInitiateSongPreview() (selectSongModel, tea.Cmd) {
+	m = m.clearSongPreview()
 	sf := m.highlightedChildFolder()
 	if sf != nil {
 		if sf.isLeaf {
@@ -221,11 +222,7 @@ func (m selectSongModel) checkInitiateSongPreview() (selectSongModel, tea.Cmd) {
 					return previewDelayTickMsg{sf.previewFilePath()}
 				})
 			}
-		} else {
-			m = m.clearSongPreview()
 		}
-	} else {
-		m = m.clearSongPreview()
 	}
 	return m, nil
 }
