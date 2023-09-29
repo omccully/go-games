@@ -10,13 +10,6 @@ var bannerStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color(logoColor)).
 	Bold(true)
 
-var songListStyle = lipgloss.NewStyle().
-	Padding(1, 2, 1, 2).
-	Border(lipgloss.RoundedBorder()).
-	BorderForeground(lipgloss.Color("#f0f007")).
-	Width(70).
-	Bold(true)
-
 func (m selectSongModel) View() string {
 	r := strings.Builder{}
 

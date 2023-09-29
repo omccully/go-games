@@ -23,10 +23,20 @@ var topLineStyle = lipgloss.NewStyle().
 
 func (m loadSongModel) View() string {
 	sb := strings.Builder{}
-	// topLine := topLineStyle.Render(m.spinner.View()+" Loading song from "+m.chartFolderPath) + "\n\n"
-	// sb.WriteString(topLine)
 
 	ld := strings.Builder{}
+
+	if m.chart != nil {
+		if m.selectedTrack == "" {
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(pinkAccentColor)).Render(loadAsciiArt("selecttrack.txt")) + "\n")
+			sb.WriteString(songListStyle.Width(60).Render(m.menuList.View()))
+		} else {
+			sb.WriteString(greenTextStyle.Render("✓ User selected track: " + m.selectedTrack))
+		}
+	}
+
+	sb.WriteString("\n\n")
+
 	if m.chart != nil {
 		if m.chart.err != nil {
 			ld.WriteString(loadFailureString("load chart: " + m.chart.err.Error()))
@@ -72,17 +82,7 @@ func (m loadSongModel) View() string {
 		ld.WriteString(m.spinner.View() + " " + loadingString("song sounds"))
 		ld.WriteRune('\n')
 	}
-
 	sb.WriteString(loadingDetailsStyle.Render(ld.String()))
-
-	if m.chart != nil {
-		sb.WriteString("\n\n")
-		if m.selectedTrack == "" {
-			sb.WriteString(m.menuList.View())
-		} else {
-			sb.WriteString(greenTextStyle.Render("✓ User selected track: " + m.selectedTrack))
-		}
-	}
 
 	return sb.String()
 }

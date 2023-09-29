@@ -52,7 +52,9 @@ type trackName struct {
 	fullTrackName   string
 }
 
-func (i trackName) Title() string { return i.instrument + " -- " + i.difficulty }
+func (i trackName) Title() string {
+	return i.instrument + " -- " + getDifficultyDisplayName(i.difficulty)
+}
 func (i trackName) Description() string {
 	return ""
 }
@@ -64,7 +66,7 @@ func (m loadSongModel) Init() tea.Cmd {
 
 func initialLoadModel(chartFolderPath string, track string, stngs settings) loadSongModel {
 	s := spinner.New()
-	s.Spinner = spinner.Dot
+	s.Spinner = spinner.Points
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 	return loadSongModel{
@@ -202,9 +204,9 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				listItems[i] = track
 			}
 
-			selectTrackMenuList := list.New(listItems, createListDd(), 0, 0)
+			selectTrackMenuList := list.New(listItems, createListDd(false), 0, 0)
 			selectTrackMenuList.Title = "Select Track"
-			selectTrackMenuList.SetSize(25, m.settings.fretBoardHeight-7)
+			selectTrackMenuList.SetSize(25, m.settings.fretBoardHeight-15)
 			selectTrackMenuList.SetShowStatusBar(false)
 			selectTrackMenuList.SetFilteringEnabled(false)
 			selectTrackMenuList.SetShowHelp(false)

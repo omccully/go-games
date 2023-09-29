@@ -40,26 +40,14 @@ type previewSongLoadFailedMsg struct {
 func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings) selectSongModel {
 	model := selectSongModel{}
 
-	selectSongMenuList := list.New([]list.Item{}, createListDd(), 0, 0)
+	selectSongMenuList := list.New([]list.Item{}, createListDd(true), 0, 0)
 	selectSongMenuList.SetSize(70, settings.fretBoardHeight-7)
 	selectSongMenuList.SetShowStatusBar(false)
 	selectSongMenuList.SetFilteringEnabled(false)
 	selectSongMenuList.SetShowHelp(false)
 	selectSongMenuList.DisableQuitKeybindings()
-
-	// lightningBoltSideBorder := lipgloss.Border{
-	// 	Left:  "🗲",
-	// 	Right: "🗲",
-	// }
-	// lipgloss.NewStyle().
-	// 	Foreground(lipgloss.Color("#f0f007")).
-	// 	Bold(true).
-	// 	BorderForeground(lipgloss.Color("#ee6ff8")).
-	// 	BorderStyle(lightningBoltSideBorder).
-	// 	BorderBottom(false).BorderTop(false).BorderLeft(true).BorderRight(true).
-	// 	Padding(0, 1, 0, 1)
 	styleList(&selectSongMenuList)
-	// selectSongMenuList.Styles.Title = listTitleStyle
+
 	setupKeymapForList(&selectSongMenuList)
 	model.menuList = selectSongMenuList
 

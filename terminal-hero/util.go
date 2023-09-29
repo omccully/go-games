@@ -96,6 +96,21 @@ func getDifficultyValue(difficulty string) int {
 	}
 }
 
+func getDifficultyDisplayName(difficulty string) string {
+	switch difficulty {
+	case "Easy":
+		return "Easy"
+	case "Medium":
+		return "Medium"
+	case "Hard":
+		return "Hard"
+	case "Expert":
+		return "💀 Expert"
+	default:
+		return difficulty
+	}
+}
+
 func pluralizeWithS(count int, singular string) string {
 	return pluralize(count, singular, singular+"s")
 }
