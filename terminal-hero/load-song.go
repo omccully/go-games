@@ -205,7 +205,7 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			selectTrackMenuList := list.New(listItems, createListDd(false), 0, 0)
-			selectTrackMenuList.Title = "Select Track"
+			selectTrackMenuList.Title = "Available Tracks"
 			selectTrackMenuList.SetSize(25, m.settings.fretBoardHeight-15)
 			selectTrackMenuList.SetShowStatusBar(false)
 			selectTrackMenuList.SetFilteringEnabled(false)

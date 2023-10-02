@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var rockArt = loadAsciiArt("rock.txt")
+
 var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#0a7d08")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#6f0707")),
@@ -23,6 +25,11 @@ var multiplierStyles [4]lipgloss.Style = [4]lipgloss.Style{
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#317fdb")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#e68226")),
 }
+
+var rockMeterBorderStyle = lipgloss.NewStyle().
+	Width(30).
+	Padding(0, 1, 0, 1).
+	Border(lipgloss.RoundedBorder())
 
 var overhitStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff"))
 
@@ -87,16 +94,17 @@ func (m playSongModel) View() string {
 
 	red := color{r: 255, g: 0, b: 0}
 	green := color{r: 0, g: 255, b: 0}
-	rockMeterColor := getColorForGradient(red, green, m.playStats.rockMeter)
-	prog := progress.New(progress.WithSolidFill("#" + rockMeterColor.Hex()))
-	prog.Width = 15
+	rockMeterColorMax := getColorForGradient(red, green, m.playStats.rockMeter)
+	rockMeterColorMin := getColorForGradient(red, green, m.playStats.rockMeter/2.0)
+	prog := progress.New(progress.WithScaledGradient("#"+rockMeterColorMin.Hex(), "#"+rockMeterColorMax.Hex()))
+
+	prog.Width = lipgloss.Width(rockArt)
 	prog.ShowPercentage = false
-
-	rockMeter.WriteString("\t\t")
+	rockMeter.WriteString(rockArt + "\n")
 	rockMeter.WriteString(prog.ViewAs(m.playStats.rockMeter))
-	rockMeter.WriteRune('\n')
 
-	return lipgloss.JoinHorizontal(0.8, scoreAndMultiplier.String(), r.String(), rockMeter.String())
+	return lipgloss.JoinHorizontal(0.8, scoreAndMultiplier.String(), r.String(), "        ",
+		rockMeterBorderStyle.Render(rockMeter.String()))
 }
 
 type color struct {

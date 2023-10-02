@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -227,14 +228,15 @@ func loadAsciiArt(fileName string) string {
 	if err != nil {
 		panic(err)
 	}
-	return string(file)
+	// \r characters mess up the lipgloss styles, such as borders
+	return strings.Replace(string(file), "\r", "", -1)
 }
 
 func isForceQuitMsg(msg tea.Msg) bool {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			return true
 		}
 	}
