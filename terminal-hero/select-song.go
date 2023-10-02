@@ -13,14 +13,15 @@ import (
 )
 
 type selectSongModel struct {
-	rootSongFolder     *songFolder
-	selectedSongFolder *songFolder
-	rootPath           string
-	menuList           list.Model
-	selectedSongPath   string
-	dbAccessor         grDbAccessor
-	songScores         *map[string]songScore
-	previewSound       *sound
+	rootSongFolder               *songFolder
+	selectedSongFolder           *songFolder
+	rootPath                     string
+	menuList                     list.Model
+	selectedSongPath             string
+	dbAccessor                   grDbAccessor
+	songScores                   *map[string]songScore
+	previewSound                 *sound
+	defaultHighlightRelativePath string
 }
 
 type previewDelayTickMsg struct {
@@ -165,11 +166,17 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.rootSongFolder = msg.rootSongFolder
 		m.selectedSongFolder = m.rootSongFolder
-		m, cmd := m.setSelectedSongFolder(m.rootSongFolder, nil)
-		if m.loaded() {
-			initializeScores(m.rootSongFolder, m.songScores)
+
+		if m.defaultHighlightRelativePath != "" {
+			m, _ = m.highlightSongRelativePath(m.defaultHighlightRelativePath)
+			m.defaultHighlightRelativePath = ""
+		} else {
+			m, cmd := m.setSelectedSongFolder(m.rootSongFolder, nil)
+			if m.loaded() {
+				initializeScores(m.rootSongFolder, m.songScores)
+			}
+			return m, cmd
 		}
-		return m, cmd
 	case trackScoresLoadedMsg:
 		m.songScores = msg.trackScores
 		if m.loaded() {
@@ -268,6 +275,10 @@ func (m selectSongModel) highlightSongAbsolutePath(absolutePath string) (selectS
 
 func (m selectSongModel) highlightSongRelativePath(relativePath string) (selectSongModel, tea.Cmd) {
 	folders := splitFolderPath(relativePath)
+	if m.rootSongFolder == nil {
+		m.defaultHighlightRelativePath = relativePath
+		return m, nil
+	}
 	songFolder := m.rootSongFolder.queryFolder(folders)
 	if songFolder != nil {
 		return m.setSelectedSongFolder(songFolder.parent, songFolder)

@@ -144,13 +144,16 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if loadModel.backout {
 			m.state = chooseSong
 			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
+
+			initCmd := m.selectSongModel.Init()
+
 			var err error
 			var hsCmd tea.Cmd
 			m.selectSongModel, hsCmd, err = m.selectSongModel.highlightSongAbsolutePath(loadModel.chartFolderPath)
 			if err != nil {
 				panic(err)
 			}
-			return m, hsCmd
+			return m, tea.Batch(hsCmd, initCmd)
 		} else if loadModel.finishedSuccessfully() {
 			playModel := createModelFromLoadModel(loadModel, m.settings)
 			pmCmd := playModel.Init()
@@ -186,6 +189,8 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			ci := m.statsScreenModel.chartInfo
 
+			initCmd := m.selectSongModel.Init()
+
 			// navigate to the song in the tree
 			var err error
 			var hsCmd tea.Cmd
@@ -194,7 +199,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				panic(err)
 			}
-			return m, hsCmd
+			return m, tea.Batch(initCmd, hsCmd)
 		}
 		return m, cmd
 	}
