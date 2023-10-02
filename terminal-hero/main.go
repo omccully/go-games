@@ -98,7 +98,7 @@ func initializeDbCmd() tea.Cmd {
 }
 
 func (m mainModel) onQuit() {
-	m.playSongModel.OnQuit()
+	m.playSongModel.destroy()
 	m.dbAccessor.close()
 }
 
@@ -170,6 +170,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if pm.playStats.failed || (pm.playStats.finished() && pm.songIsFinished()) {
 			m.statsScreenModel = initialStatsScreenModel(pm.chartInfo, pm.playStats, m.songRootPath, m.dbAccessor)
 			m.state = statsScreen
+			pm.destroy()
 			return m, m.statsScreenModel.Init()
 		}
 
@@ -180,7 +181,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		statsModel, cmd := m.statsScreenModel.Update(msg)
 		m.statsScreenModel = statsModel.(statsScreenModel)
 		if m.statsScreenModel.shouldContinue {
-			m.statsScreenModel.onDestroy()
+			m.statsScreenModel.destroy()
 			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
 			m.state = chooseSong
 

@@ -349,7 +349,7 @@ func (m playSongModel) setGuitarSilent(silent bool) {
 	speaker.Unlock()
 }
 
-func (m playSongModel) OnQuit() {
+func (m playSongModel) destroy() {
 	speaker.Clear()
 	closeSoundStreams(m.songSounds)
 }
@@ -378,7 +378,7 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.playStats.failed {
-			m.OnQuit()
+			m.destroy()
 			return m, nil
 		}
 
@@ -390,7 +390,7 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = m.playNoteNow(noteIndex)
 
 			if m.playStats.failed {
-				m.OnQuit()
+				m.destroy()
 				return m, nil
 			}
 		}

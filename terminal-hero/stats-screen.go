@@ -86,7 +86,7 @@ func loadStatsScreenSoundCmd(passed bool) tea.Cmd {
 	}
 }
 
-func (m statsScreenModel) onDestroy() {
+func (m statsScreenModel) destroy() {
 	speaker.Clear()
 	m.soundEffect.sound.close()
 }
