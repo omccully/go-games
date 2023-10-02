@@ -26,6 +26,11 @@ var multiplierStyles [4]lipgloss.Style = [4]lipgloss.Style{
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#e68226")),
 }
 
+var scoreAndMultiplierStyle = lipgloss.NewStyle().
+	Height(3).
+	Width(20).
+	Border(lipgloss.RoundedBorder())
+
 var rockMeterBorderStyle = lipgloss.NewStyle().
 	Width(30).
 	Padding(0, 1, 0, 1).
@@ -82,12 +87,13 @@ func (m playSongModel) View() string {
 
 	scoreAndMultiplier := strings.Builder{}
 
-	scoreAndMultiplier.WriteString("Score: " + strconv.Itoa(m.playStats.score) + "\n")
+	var widthStyle = lipgloss.NewStyle().Width(lipgloss.Width("Multiplier") + 2)
+	scoreAndMultiplier.WriteString(widthStyle.Render("Score: ") + strconv.Itoa(m.playStats.score) + "\n")
 	multiplier := m.playStats.getMultiplier()
-	scoreAndMultiplier.WriteString("Multiplier: x" + multiplierStyles[multiplier-1].Render(strconv.Itoa(multiplier)) + "            \n")
+	scoreAndMultiplier.WriteString(widthStyle.Render("Multiplier: ") + "x" + multiplierStyles[multiplier-1].Render(strconv.Itoa(multiplier)) + "\n")
 
 	if m.playStats.noteStreak > 25 {
-		scoreAndMultiplier.WriteString("Streak: " + strconv.Itoa(m.playStats.noteStreak) + "\n")
+		scoreAndMultiplier.WriteString(widthStyle.Render("Streak: ") + strconv.Itoa(m.playStats.noteStreak) + "\n")
 	}
 
 	rockMeter := strings.Builder{}
@@ -103,7 +109,8 @@ func (m playSongModel) View() string {
 	rockMeter.WriteString(rockArt + "\n")
 	rockMeter.WriteString(prog.ViewAs(m.playStats.rockMeter))
 
-	return lipgloss.JoinHorizontal(0.8, scoreAndMultiplier.String(), r.String(), "        ",
+	return lipgloss.JoinHorizontal(0.8, scoreAndMultiplierStyle.Render(scoreAndMultiplier.String()),
+		"        ", r.String(), "        ",
 		rockMeterBorderStyle.Render(rockMeter.String()))
 }
 
