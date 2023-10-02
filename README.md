@@ -41,8 +41,10 @@ You can play with the number keys 1 through 5. When a note crosses the strum lin
 
 You may play with your keyboard in your hand to mimick holding a guitar. A mechanical keyboard is preferrable, since most standard keyboards don't allow you to press certain buttons at the same time, so you may have problems hitting certain chords. 
 
+You can also use the keys above the space bar (vbnm,./) to repeat the last successfully-played note. This allows you to hit fast repeated notes, especially fast repeated chords. 
+
 Held notes are displayed, but they do not affect your score. You should not hold down any keys because that will end up repeating key event and you'll fail the song due to playing the same note too many times. This is a limitation of terminals. To help with this, you can disable key repeating or change the repeat timing in most operating systems and terminals.
 
 ## Demo
 
-Demo video coming soon
+https://www.youtube.com/watch?v=A1YAOn0saYY
