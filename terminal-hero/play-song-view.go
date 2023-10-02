@@ -93,7 +93,7 @@ func (m playSongModel) View() string {
 	scoreAndMultiplier.WriteString(widthStyle.Render("Multiplier: ") + "x" + multiplierStyles[multiplier-1].Render(strconv.Itoa(multiplier)) + "\n")
 
 	if m.playStats.noteStreak > 25 {
-		scoreAndMultiplier.WriteString(widthStyle.Render("Streak: ") + strconv.Itoa(m.playStats.noteStreak) + "\n")
+		scoreAndMultiplier.WriteString(widthStyle.Render("Streak: ") + strconv.Itoa(m.playStats.noteStreak))
 	}
 
 	rockMeter := strings.Builder{}
@@ -111,7 +111,8 @@ func (m playSongModel) View() string {
 
 	return lipgloss.JoinHorizontal(0.8, scoreAndMultiplierStyle.Render(scoreAndMultiplier.String()),
 		"        ", r.String(), "        ",
-		rockMeterBorderStyle.Render(rockMeter.String()))
+		rockMeterBorderStyle.Foreground(lipgloss.Color("#"+rockMeterColorMax.Hex())).
+			BorderForeground(lipgloss.Color("#"+rockMeterColorMax.Hex())).Render(rockMeter.String()))
 }
 
 type color struct {
