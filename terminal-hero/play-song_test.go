@@ -410,6 +410,41 @@ func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
 	}
 }
 
+func TestReplayChord(t *testing.T) {
+	chart := openPrayerOfTheRefugeeChart(t)
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	strumLineTime := 52500
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
+	model = model.ProcessNoNotePlayed(strumLineTime)
+
+	model = model.PlayNote(ncRed, strumLineTime)
+	model = model.PlayNote(ncOrange, strumLineTime)
+
+	if model.playStats.noteStreak != 2 {
+		t.Error("Expected noteStreak to be 2, got", model.playStats.notesHit)
+	}
+
+	model = model.playLastHitNote(52680)
+
+	if model.playStats.noteStreak != 4 {
+		t.Error("Expected noteStreak to be 4, got", model.playStats.notesHit)
+	}
+
+	model = model.playLastHitNote(52830)
+	model = model.playLastHitNote(52980)
+
+	if model.playStats.noteStreak != 8 {
+		t.Error("Expected noteStreak to be 8, got", model.playStats.notesHit)
+	}
+
+	model = model.playLastHitNote(53130)
+
+	if model.playStats.noteStreak != 0 {
+		t.Error("Expected noteStreak to be 0, got", model.playStats.notesHit)
+	}
+}
+
 func TestColorGradient(t *testing.T) {
 	red := color{r: 255, g: 0, b: 0}
 	green := color{r: 0, g: 255, b: 0}

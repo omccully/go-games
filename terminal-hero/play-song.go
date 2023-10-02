@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -331,6 +332,19 @@ func getNextNoteOrChord(notes []playableNote, startIndex int) []playableNote {
 	return chord
 }
 
+func getPreviousNoteOrChord(notes []playableNote, startIndex int) []playableNote {
+	note := notes[startIndex]
+	chord := []playableNote{note}
+	for i := startIndex - 1; i >= 0; i-- {
+		if notes[i].TimeStamp == note.TimeStamp {
+			chord = append(chord, notes[i])
+		} else {
+			break
+		}
+	}
+	return chord
+}
+
 func (m playSongModel) muteGuitar() {
 	m.setGuitarSilent(true)
 }
@@ -393,11 +407,43 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.destroy()
 				return m, nil
 			}
+		} else if strings.Contains("nm,./", keyName) {
+			m = m.playLastHitNoteNow()
 		}
 	case tea.WindowSizeMsg:
 		m.settings.fretBoardHeight = msg.Height - 3
 	}
 	return m, nil
+}
+
+func allNotesPlayed(notes []playableNote) bool {
+	for _, note := range notes {
+		if !note.played {
+			return false
+		}
+	}
+	return true
+}
+
+func (m playSongModel) playLastHitNote(strumTimeMs int) playSongModel {
+	var lastPlayedNoteOrChord []playableNote
+	startIndex := m.playStats.lastPlayedNoteIndex
+	for {
+		lastPlayedNoteOrChord = getPreviousNoteOrChord(m.realTimeNotes, startIndex)
+		if allNotesPlayed(lastPlayedNoteOrChord) {
+			break
+		}
+		startIndex -= len(lastPlayedNoteOrChord)
+	}
+
+	for _, note := range lastPlayedNoteOrChord {
+		m = m.PlayNote(note.NoteType, strumTimeMs)
+	}
+	return m
+}
+
+func (m playSongModel) playLastHitNoteNow() playSongModel {
+	return m.playLastHitNote(m.currentStrumTimeMs())
 }
 
 func (m playSongModel) playNoteNow(noteIndex int) playSongModel {
