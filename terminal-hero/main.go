@@ -167,13 +167,10 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		playModel, cmd := m.playSongModel.Update(msg)
 		pm := playModel.(playSongModel)
 
-		if pm.playStats.failed {
+		if pm.playStats.failed || (pm.playStats.finished() && pm.songIsFinished()) {
 			m.statsScreenModel = initialStatsScreenModel(pm.chartInfo, pm.playStats, m.songRootPath, m.dbAccessor)
 			m.state = statsScreen
-		} else if pm.playStats.finished() && pm.songIsFinished() {
-			m.statsScreenModel = initialStatsScreenModel(pm.chartInfo, pm.playStats, m.songRootPath, m.dbAccessor)
-			m.state = statsScreen
-			return m, nil
+			return m, m.statsScreenModel.Init()
 		}
 
 		m.playSongModel = pm
@@ -183,7 +180,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		statsModel, cmd := m.statsScreenModel.Update(msg)
 		m.statsScreenModel = statsModel.(statsScreenModel)
 		if m.statsScreenModel.shouldContinue {
-
+			m.statsScreenModel.onDestroy()
 			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
 			m.state = chooseSong
 

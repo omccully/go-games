@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
 )
 
 var errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
@@ -36,6 +39,12 @@ type statsScreenModel struct {
 	songRootPath       string
 	shouldContinue     bool
 	db                 grDbAccessor
+	soundEffect        statsScreenSoundLoadedMsg
+}
+
+type statsScreenSoundLoadedMsg struct {
+	sound sound
+	err   error
 }
 
 func initialStatsScreenModel(ci chartInfo, ps playStats, songRootPath string, db grDbAccessor) statsScreenModel {
@@ -44,7 +53,7 @@ func initialStatsScreenModel(ci chartInfo, ps playStats, songRootPath string, db
 		sssErr = saveSongScore(db, ci, ps, songRootPath)
 	}
 
-	return statsScreenModel{ci, ps, sssErr, songRootPath, false, db}
+	return statsScreenModel{ci, ps, sssErr, songRootPath, false, db, statsScreenSoundLoadedMsg{}}
 }
 
 func saveSongScore(db grDbAccessor, ci chartInfo, ps playStats, songRootPath string) error {
@@ -63,8 +72,27 @@ func saveSongScore(db grDbAccessor, ci chartInfo, ps playStats, songRootPath str
 	return db.setSongScore(s, ci.track, ps.score, ps.notesHit, ps.totalNotes)
 }
 
+func loadStatsScreenSoundCmd(passed bool) tea.Cmd {
+	return func() tea.Msg {
+		var ss beep.StreamSeeker
+		var fmt beep.Format
+		var err error
+		if passed {
+			ss, fmt, err = openAudioFile("assets/sounds/passed.wav")
+		} else {
+			ss, fmt, err = openAudioFile("assets/sounds/failed.wav")
+		}
+		return statsScreenSoundLoadedMsg{sound{ss, fmt, ""}, err}
+	}
+}
+
+func (m statsScreenModel) onDestroy() {
+	speaker.Clear()
+	m.soundEffect.sound.close()
+}
+
 func (m statsScreenModel) Init() tea.Cmd {
-	return nil
+	return loadStatsScreenSoundCmd(!m.playStats.failed)
 }
 
 func (m statsScreenModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -74,6 +102,13 @@ func (m statsScreenModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			m.shouldContinue = true
 		}
+	case statsScreenSoundLoadedMsg:
+		m.soundEffect = msg
+		if msg.err != nil {
+			return m, nil
+		}
+		speaker.Init(msg.sound.format.SampleRate, msg.sound.format.SampleRate.N(time.Second/10))
+		speaker.Play(msg.sound.soundStream)
 	}
 	return m, nil
 }
@@ -130,6 +165,10 @@ func (m statsScreenModel) View() string {
 
 	if m.saveSongScoreError != nil {
 		sb.WriteString(errorStyle.Render("\n\nError saving song score: "+m.saveSongScoreError.Error()) + "\n")
+	}
+
+	if m.soundEffect.err != nil {
+		sb.WriteString(errorStyle.Render("\n\nError playing sound effect: "+m.soundEffect.err.Error()) + "\n")
 	}
 
 	sb.WriteString(lipgloss.NewStyle().Background(lipgloss.Color("#b6b3fc")).Foreground(lipgloss.Color("#000000")).
