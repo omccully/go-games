@@ -45,7 +45,7 @@ Start the game by typing `terminal-hero` in your terminal
 
 You can play with the number keys 1 through 5. When a note crosses the strum line, you must tap that key on the keyboard. Hitting the note increases your score, and missing notes could cause you to fail the song. The scoring is similar to Guitar Hero. Your scores are saved when you set a new high score on a song.
 
-You may play with your keyboard in your hand to mimick holding a guitar. A mechanical keyboard is preferrable, since most standard keyboards don't allow you to press certain buttons at the same time, so you may have problems hitting certain chords. 
+You may play with your keyboard in your hand to mimic holding a guitar. A mechanical keyboard is preferrable, since most standard keyboards don't allow you to press certain buttons at the same time, so you may have problems hitting certain chords. 
 
 You can also use the keys above the space bar (vbnm,./) to repeat the last successfully-played note. This allows you to hit fast repeated notes, especially fast repeated chords. 
 
