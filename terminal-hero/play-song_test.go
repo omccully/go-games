@@ -445,6 +445,18 @@ func TestReplayChord(t *testing.T) {
 	}
 }
 
+func TestReplayNote_AtBeginning(t *testing.T) {
+	chart := openPrayerOfTheRefugeeChart(t)
+	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	strumLineTime := 500
+	model = initializeModelToStrumLineTime(model, strumLineTime)
+
+	model = model.playLastHitNote(strumLineTime)
+	if model.playStats.rockMeter > 0.5 {
+		t.Error("Expected rockMeter to be less than 0.5, got", model.playStats.rockMeter)
+	}
+}
+
 func TestColorGradient(t *testing.T) {
 	red := color{r: 255, g: 0, b: 0}
 	green := color{r: 0, g: 255, b: 0}

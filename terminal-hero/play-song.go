@@ -333,6 +333,9 @@ func getNextNoteOrChord(notes []playableNote, startIndex int) []playableNote {
 }
 
 func getPreviousNoteOrChord(notes []playableNote, startIndex int) []playableNote {
+	if startIndex < 0 {
+		return []playableNote{}
+	}
 	note := notes[startIndex]
 	chord := []playableNote{note}
 	for i := startIndex - 1; i >= 0; i-- {
