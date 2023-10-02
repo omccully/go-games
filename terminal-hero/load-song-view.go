@@ -28,7 +28,7 @@ func (m loadSongModel) View() string {
 
 	if m.chart != nil {
 		if m.selectedTrack == "" {
-			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(pinkAccentColor)).Render(loadAsciiArt("selecttrack.txt")) + "\n")
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(pinkAccentColor)).Render(getAsciiArt("selecttrack.txt")) + "\n")
 			sb.WriteString(songListStyle.Width(60).Render(m.menuList.View()))
 		} else {
 			sb.WriteString(greenTextStyle.Render("✓ User selected track: " + m.selectedTrack))

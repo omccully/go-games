@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -223,16 +221,6 @@ func (m mainModel) View() string {
 		return m.statsScreenModel.View()
 	}
 	return "No view"
-}
-
-func loadAsciiArt(fileName string) string {
-	fullPath := filepath.Join("ascii-art", fileName)
-	file, err := os.ReadFile(fullPath)
-	if err != nil {
-		panic(err)
-	}
-	// \r characters mess up the lipgloss styles, such as borders
-	return strings.Replace(string(file), "\r", "", -1)
 }
 
 func isForceQuitMsg(msg tea.Msg) bool {

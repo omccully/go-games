@@ -9,8 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var rockArt = loadAsciiArt("rock.txt")
-
 var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#25b12b")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#b4242d")),
@@ -104,6 +102,7 @@ func (m playSongModel) View() string {
 	rockMeterColorMin := getColorForGradient(red, green, m.playStats.rockMeter/2.0)
 	prog := progress.New(progress.WithScaledGradient("#"+rockMeterColorMin.Hex(), "#"+rockMeterColorMax.Hex()))
 
+	rockArt := getAsciiArt("rock.txt")
 	prog.Width = lipgloss.Width(rockArt)
 	prog.ShowPercentage = false
 	rockMeter.WriteString(rockArt + "\n")

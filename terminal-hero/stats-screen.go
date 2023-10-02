@@ -29,9 +29,6 @@ var statsListStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).
 	BorderForeground(lipgloss.Color(pinkAccentColor)).
 	Padding(1, 4, 0, 4)
 
-var failedArt = loadAsciiArt("failed.txt")
-var passArt = loadAsciiArt("pass.txt")
-
 type statsScreenModel struct {
 	chartInfo          chartInfo
 	playStats          playStats
@@ -117,11 +114,11 @@ func (m statsScreenModel) View() string {
 	sb := strings.Builder{}
 
 	if m.playStats.failed {
-		sb.WriteString(failedStyle.Render(failedArt) + "\n")
+		sb.WriteString(failedStyle.Render(getAsciiArt("failed.txt")) + "\n")
 	} else {
-		sb.WriteString(passStyle.Render(passArt) + "\n")
+		sb.WriteString(passStyle.Render(getAsciiArt("pass.txt")) + "\n")
 
-		starArt := loadAsciiArt("star.txt")
+		starArt := getAsciiArt("star.txt")
 		starArts := []string{}
 		starCount := m.playStats.stars()
 		for i := 0; i < 5; i++ {

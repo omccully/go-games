@@ -107,7 +107,7 @@ func (conn grDbConnection) migrateDatabase() (int, error) {
 
 		if migrationVersion == migrationNumberInt-1 {
 			fullPath := filepath.Join("migrations", migrationFilePath.Name())
-			data, err := os.ReadFile(fullPath)
+			data, err := readEmbeddedResourceFile(fullPath)
 			if err != nil {
 				return migrationsApplied, err
 			}
@@ -134,7 +134,7 @@ func (conn grDbConnection) migrateDatabase() (int, error) {
 }
 
 func getMigrationFilePaths() ([]fs.DirEntry, error) {
-	entries, err := os.ReadDir("./migrations")
+	entries, err := readEmbeddedResourceDir("migrations")
 	if err != nil {
 		return nil, err
 	}

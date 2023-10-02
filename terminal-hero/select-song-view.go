@@ -28,7 +28,7 @@ func (m selectSongModel) View() string {
 		return r.String()
 	}
 
-	r.WriteString(bannerStyle.Render(loadAsciiArt("terminalhero.txt")) + "\n\n")
+	r.WriteString(bannerStyle.Render(getAsciiArt("terminalhero.txt")) + "\n\n")
 
 	r.WriteString(songListStyle.Render(m.menuList.View()))
 	return r.String()
