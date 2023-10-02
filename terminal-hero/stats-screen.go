@@ -75,9 +75,9 @@ func loadStatsScreenSoundCmd(passed bool) tea.Cmd {
 		var fmt beep.Format
 		var err error
 		if passed {
-			ss, fmt, err = openAudioFile("assets/sounds/passed.wav")
+			ss, fmt, err = openAudioFile("passed.wav")
 		} else {
-			ss, fmt, err = openAudioFile("assets/sounds/failed.wav")
+			ss, fmt, err = openAudioFile("failed.wav")
 		}
 		return statsScreenSoundLoadedMsg{sound{ss, fmt, ""}, err}
 	}

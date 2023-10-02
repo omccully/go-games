@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/faiface/beep"
@@ -32,7 +34,7 @@ type songSounds struct {
 }
 
 func loadSoundEffects() (soundEffects, error) {
-	wrongNoteSound, _, err := openAudioFile("assets/sounds/wrong-note.wav")
+	wrongNoteSound, _, err := openAudioFile("wrong-note.wav")
 	if err != nil {
 		return soundEffects{}, err
 	}
@@ -56,6 +58,8 @@ func openAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
 }
 
 func wavDecoder(rc io.ReadCloser) (beep.StreamSeekCloser, beep.Format, error) {
+	// for some reason vorbis.Decode accepts a ReadCloser instead of just a Reader
+	// so we have to adapt the wav.Decode to be accept ReadCloser
 	ssc, f, err := wav.Decode(rc)
 	return ssc, f, err
 }
@@ -71,36 +75,43 @@ func openBufferedOggAudioFile(filePath string) (beep.StreamSeeker, beep.Format, 
 type decoderFunc func(rc io.ReadCloser) (beep.StreamSeekCloser, beep.Format, error)
 
 func openBufferedAudioFileG(filePath string, decoder decoderFunc) (beep.StreamSeeker, beep.Format, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, beep.Format{}, err
+	isAbsolutePath := filepath.IsAbs(filePath)
+	var reader io.ReadCloser
+	if isAbsolutePath {
+		// if it's an absolute path, use the file system
+		file, err := os.Open(filePath)
+		if err != nil {
+			return nil, beep.Format{}, err
+		}
+		reader = file
+	} else {
+		// if it's a relative path, check for an embedded resource
+		resourcePath := filepath.Join("sounds", filePath)
+		ef, err := readEmbeddedResourceFile(resourcePath)
+		if err != nil {
+			return nil, beep.Format{}, err
+		}
+
+		// vorbis.Decode accepts a ReadCloser so we need to adapt this
+		// to have a Close method
+		reader = &ClosableBuffer{bytes.NewBuffer(ef)}
 	}
-	streamer, format, err := decoder(file)
+
+	streamer, format, err := decoder(reader)
 	if err != nil {
 		return nil, beep.Format{}, err
 	}
 
-	buffer := beep.NewBuffer(format)
-	buffer.Append(streamer)
-	streamer.Close()
-	bufferedStreamer := buffer.Streamer(0, buffer.Len())
+	defer streamer.Close()
+
+	bufferedStreamer := bufferStreamer(streamer, format)
 	return bufferedStreamer, format, nil
 }
 
-func openOggAudioFile(filePath string) (beep.StreamSeekCloser, beep.Format, error) {
-	return openAudioFileG(filePath, vorbis.Decode)
-}
-
-func openAudioFileG(filePath string, decoder decoderFunc) (beep.StreamSeekCloser, beep.Format, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, beep.Format{}, err
-	}
-	streamer, format, err := decoder(file)
-	if err != nil {
-		return nil, beep.Format{}, err
-	}
-	return streamer, format, nil
+func bufferStreamer(streamer beep.StreamSeeker, format beep.Format) beep.StreamSeeker {
+	buffer := beep.NewBuffer(format)
+	buffer.Append(streamer)
+	return buffer.Streamer(0, buffer.Len())
 }
 
 func closeSoundStreams(songSounds songSounds) {
@@ -118,4 +129,12 @@ func closeStreamSeeker(streamer beep.StreamSeeker) {
 
 func (s sound) close() {
 	closeStreamSeeker(s.soundStream)
+}
+
+type ClosableBuffer struct {
+	*bytes.Buffer
+}
+
+func (cb *ClosableBuffer) Close() error {
+	return nil
 }
