@@ -6,7 +6,7 @@ Similar to Guitar Hero and Rock Band but runs in a terminal. Supports standard .
 
 https://www.youtube.com/watch?v=A1YAOn0saYY
 
-![Demo image](demo/screenshot.png)
+![Demo image](terminal-hero/demo/screenshot.png)
 
 ## Download and install from source
 
