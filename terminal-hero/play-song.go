@@ -407,7 +407,7 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.destroy()
 				return m, nil
 			}
-		} else if strings.Contains("nm,./", keyName) {
+		} else if strings.Contains("vbnnm,./", keyName) {
 			m = m.playLastHitNoteNow()
 		}
 	case tea.WindowSizeMsg:
