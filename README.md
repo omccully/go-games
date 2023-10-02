@@ -2,6 +2,12 @@
 
 Similar to Guitar Hero and Rock Band but runs in a terminal. Supports standard .chart and .mid files to allow easy importing of songs from other games including Guitar Hero and Rock Band.
 
+## Demo
+
+https://www.youtube.com/watch?v=A1YAOn0saYY
+
+![Demo image](demo/screenshot.png)
+
 ## Download and install from source
 
 Requires `go` command line tools to compile and install the Go code.
@@ -44,7 +50,3 @@ You may play with your keyboard in your hand to mimick holding a guitar. A mecha
 You can also use the keys above the space bar (vbnm,./) to repeat the last successfully-played note. This allows you to hit fast repeated notes, especially fast repeated chords. 
 
 Held notes are displayed, but they do not affect your score. You should not hold down any keys because that will end up repeating key event and you'll fail the song due to playing the same note too many times. This is a limitation of terminals. To help with this, you can disable key repeating or change the repeat timing in most operating systems and terminals.
-
-## Demo
-
-https://www.youtube.com/watch?v=A1YAOn0saYY
