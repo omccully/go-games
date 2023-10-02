@@ -41,7 +41,7 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 	model := selectSongModel{}
 
 	selectSongMenuList := list.New([]list.Item{}, createListDd(true), 0, 0)
-	selectSongMenuList.SetSize(70, settings.fretBoardHeight-7)
+	selectSongMenuList.SetSize(70, settings.fretBoardHeight-8)
 	selectSongMenuList.SetShowStatusBar(false)
 	selectSongMenuList.SetFilteringEnabled(false)
 	selectSongMenuList.SetShowHelp(false)

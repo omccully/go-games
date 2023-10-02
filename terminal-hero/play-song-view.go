@@ -12,8 +12,8 @@ import (
 var rockArt = loadAsciiArt("rock.txt")
 
 var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#0a7d08")),
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#6f0707")),
+	lipgloss.NewStyle().Foreground(lipgloss.Color("#25b12b")),
+	lipgloss.NewStyle().Foreground(lipgloss.Color("#b4242d")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#f6fa41")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#317fdb")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#e68226")),
@@ -54,7 +54,7 @@ func (m playSongModel) View() string {
 			}
 
 			if isNote {
-				r.WriteString(noteStyles[noteType].Render("(O)"))
+				r.WriteString(noteStyles[noteType].Render("(" + (strconv.Itoa(noteType + 1)) + ")"))
 			} else {
 				if i == strumLineIndex {
 					if m.viewModel.noteStates[noteType].overHit {
