@@ -16,7 +16,7 @@ var orangeTextStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("#FFA500"))
 
 var loadingDetailsStyle = lipgloss.NewStyle().
-	MarginLeft(4)
+	MarginLeft(4).Width(70)
 
 var topLineStyle = lipgloss.NewStyle().
 	Bold(true)
@@ -24,9 +24,7 @@ var topLineStyle = lipgloss.NewStyle().
 func (m loadSongModel) View() string {
 	sb := strings.Builder{}
 
-	ld := strings.Builder{}
-
-	if m.chart != nil {
+	if m.chart != nil && m.chart.err == nil {
 		if m.selectedTrack == "" {
 			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(pinkAccentColor)).Render(getAsciiArt("selecttrack.txt")) + "\n")
 			sb.WriteString(songListStyle.Width(60).Render(m.menuList.View()))
@@ -37,6 +35,7 @@ func (m loadSongModel) View() string {
 
 	sb.WriteString("\n\n")
 
+	ld := strings.Builder{}
 	if m.chart != nil {
 		if m.chart.err != nil {
 			ld.WriteString(loadFailureString("load chart: " + m.chart.err.Error()))
