@@ -60,9 +60,9 @@ func (ts trackScore) percentage() float64 {
 }
 
 func openDefaultDbConnection() (grDbConnection, error) {
-	dbFolderPath, err := getGameDataFolder()
+	dbFolderPath, err := createAndGetSubDataFolder(".db")
 	if err != nil {
-		panic(err)
+		return grDbConnection{}, err
 	}
 	dbFilePath := filepath.Join(dbFolderPath, "terminalhero.db")
 	return openDbConnection(dbFilePath)
@@ -287,7 +287,29 @@ func getGameDataFolder() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, ".terminalhero"), nil
+	return filepath.Join(dir, "Terminal Hero"), nil
+}
+
+func getSubDataFolderPath(subFolderName string) (string, error) {
+	folderPath, err := getGameDataFolder()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(folderPath, subFolderName), nil
+}
+
+func createAndGetSubDataFolder(subFolderName string) (string, error) {
+	folderPath, err := getGameDataFolder()
+	if err != nil {
+		return "", err
+	}
+
+	subFolderPath := filepath.Join(folderPath, subFolderName)
+	err = os.MkdirAll(subFolderPath, 0755)
+	if err != nil {
+		return subFolderPath, err
+	}
+	return subFolderPath, nil
 }
 
 func createDataFolderIfDoesntExist() error {

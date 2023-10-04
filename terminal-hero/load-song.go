@@ -128,16 +128,34 @@ func convertChartCmd(chartFolderPath string) tea.Cmd {
 }
 
 func convertMidi(midiFilePath string) (string, error) {
-	p := os.Getenv(mid2chartJarPathEnvVar)
-	if p == "" {
-		panic("Selected a song with only a notes.mid file and no notes.chart, and " + mid2chartJarPathEnvVar + " is not set to convert it.")
+	mid2ChartFolderPath, err := getSubDataFolderPath(".mid2chart")
+	if err != nil {
+		return "", err
 	}
 
-	cmd := exec.Command("java", "-jar", p, midiFilePath)
+	jarFileName := "mid2chart.jar"
+	jarFilePath := filepath.Join(mid2ChartFolderPath, jarFileName)
+	if !fileExists(jarFilePath) {
+		err = os.MkdirAll(mid2ChartFolderPath, 0755)
+		if err != nil {
+			return "", err
+		}
+		bytes, err := readEmbeddedResourceFile(jarFileName)
+		if err != nil {
+			return "", err
+		}
+
+		err = os.WriteFile(jarFilePath, bytes, 0644)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	cmd := exec.Command("java", "-jar", jarFilePath, midiFilePath)
 	var out strings.Builder
 	cmd.Stdout = &out
-	err := cmd.Run()
-	return p + " " + midiFilePath + " " + out.String(), err
+	err = cmd.Run()
+	return jarFilePath + " " + midiFilePath + " " + out.String(), err
 }
 
 func initializeChart(chartFolderPath string) (*Chart, bool, error) {

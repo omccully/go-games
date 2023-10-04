@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	litDurationMs          = 150
-	songPathEnvVar         = "TERMINALHERO_SONGS_PATH"
-	mid2chartJarPathEnvVar = "TERMINALHERO_MID2CHART_JARPATH"
+	litDurationMs = 150
 )
 
 type sessionState int
@@ -56,9 +54,9 @@ func initialMainModel() mainModel {
 	fretboardHeight := 35
 	settings := settings{fretboardHeight, lineTime, strumTolerance}
 
-	songRootPath := os.Getenv(songPathEnvVar)
-	if songRootPath == "" {
-		panic(songPathEnvVar + " environment variable not set")
+	songRootPath, err := createAndGetSubDataFolder("Songs")
+	if err != nil {
+		panic(err)
 	}
 
 	return mainModel{
@@ -79,10 +77,6 @@ type dbInitializedMsg struct {
 
 func initializeDbCmd() tea.Cmd {
 	return func() tea.Msg {
-		err := createDataFolderIfDoesntExist()
-		if err != nil {
-			return dbInitializedMsg{nil, err}
-		}
 		db, err := openDefaultDbConnection()
 		if err != nil {
 			return dbInitializedMsg{nil, err}
