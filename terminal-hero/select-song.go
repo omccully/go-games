@@ -249,7 +249,11 @@ func (sf *songFolder) previewFilePath() string {
 }
 
 func (m selectSongModel) highlightedChildFolder() *songFolder {
-	return m.menuList.SelectedItem().(*songFolder)
+	item := m.menuList.SelectedItem()
+	if item == nil {
+		return nil
+	}
+	return item.(*songFolder)
 }
 
 func loadPreviewSongCmd(previewFilePath string) tea.Cmd {

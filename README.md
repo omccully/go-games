@@ -20,16 +20,20 @@ go install .
 
 Then make sure the `%GOPATH%/bin` path is part of your PATH environmental variable to be able to play the snake game from any working directory.
 
-## Environmental variables
+## Game data folders
 
-`TERMINALHERO_SONGS_PATH` -- path of the folder that contains all of your song folders. Each song should be in a separate folder and should contain:
+Place song folders in the `Terminal Hero/Songs` folder in your user profile folder (`%USERPROFILE%/Terminal Hero/Songs` on Windows or `~/Terminal Hero/Songs` on Mac and Linux).
+
+Each song should be in a separate folder and should contain:
 
 - either a notes.mid file or a notes.chart file. notes.mid files will be automatically converted to notes.chart.
 - guitar.ogg file
 - song.ogg file
 - rhythm.ogg file (optional)
 
-`TERMINALHERO_MID2CHART_JARPATH` -- path to the .jar file for the program that converts the mid file to a chart file.
+You can organize and group the songs into various folders as desired.
+
+The `Terminal Hero/.db` folder contains the SQLite database file that contains high scores.
 
 ## Downloading and importing songs
 
