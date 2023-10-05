@@ -26,7 +26,7 @@ type playSongModel struct {
 	songSounds   songSounds
 	soundEffects soundEffects
 	startedMusic bool
-	speaker      *thSpeaker
+	speaker      soundPlayer
 	simpleMode   bool
 }
 
@@ -60,11 +60,6 @@ type currentNoteState struct {
 }
 
 type tickMsg time.Time
-
-type playableNote struct {
-	played bool
-	Note
-}
 
 func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
 	model := createModelFromChart(lm.chart.chart, lm.selectedTrack, stngs)
@@ -117,7 +112,7 @@ func timerCmd(d time.Duration) tea.Cmd {
 
 // returns the notes that should currently be on the screen
 func (m playSongModel) CreateCurrentNoteChart() viewModel {
-	var result []NoteLine
+	result := make([]NoteLine, m.settings.fretBoardHeight)
 	lineTimeMs := int(m.settings.lineTime / time.Millisecond)
 
 	// each iteration of the loop displays notes after displayTimeMs
@@ -138,17 +133,9 @@ func (m playSongModel) CreateCurrentNoteChart() viewModel {
 
 				latestNotPrintedNoteIndex = j - 1
 			} else {
-				chord := []playableNote{note}
-				for ci := j - 1; ci >= 0; ci-- {
-					if m.realTimeNotes[ci].TimeStamp == note.TimeStamp {
-						chord = append(chord, m.realTimeNotes[ci])
-					} else {
-						break
-					}
-				}
+				chord := getPreviousNoteOrChord(m.realTimeNotes, j)
 
 				for _, chordNote := range chord {
-
 					if chordNote.TimeStamp+int(chordNote.ExtraData-100) >= displayTimeMs {
 						heldNotes[chordNote.NoteType] = true
 					}
@@ -159,7 +146,7 @@ func (m playSongModel) CreateCurrentNoteChart() viewModel {
 			}
 		}
 
-		result = append(result, NoteLine{noteColors, heldNotes, displayTimeMs})
+		result[i] = NoteLine{noteColors, heldNotes, displayTimeMs}
 
 		displayTimeMs -= lineTimeMs
 	}
@@ -327,35 +314,6 @@ func refreshNoteStates(vm viewModel, strumTimeMs int) viewModel {
 	return vm
 }
 
-func getNextNoteOrChord(notes []playableNote, startIndex int) []playableNote {
-	note := notes[startIndex]
-	chord := []playableNote{note}
-	for i := startIndex + 1; i < len(notes); i++ {
-		if notes[i].TimeStamp == note.TimeStamp {
-			chord = append(chord, notes[i])
-		} else {
-			break
-		}
-	}
-	return chord
-}
-
-func getPreviousNoteOrChord(notes []playableNote, startIndex int) []playableNote {
-	if startIndex < 0 {
-		return []playableNote{}
-	}
-	note := notes[startIndex]
-	chord := []playableNote{note}
-	for i := startIndex - 1; i >= 0; i-- {
-		if notes[i].TimeStamp == note.TimeStamp {
-			chord = append(chord, notes[i])
-		} else {
-			break
-		}
-	}
-	return chord
-}
-
 func (m playSongModel) muteGuitar() {
 	m.setGuitarSilent(true)
 }
@@ -427,15 +385,6 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.settings.fretBoardHeight = msg.Height - 3
 	}
 	return m, nil
-}
-
-func allNotesPlayed(notes []playableNote) bool {
-	for _, note := range notes {
-		if !note.played {
-			return false
-		}
-	}
-	return true
 }
 
 func (m playSongModel) playLastHitNote(strumTimeMs int) playSongModel {

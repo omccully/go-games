@@ -18,9 +18,6 @@ var orangeTextStyle = lipgloss.NewStyle().
 var loadingDetailsStyle = lipgloss.NewStyle().
 	MarginLeft(4).Width(70)
 
-var topLineStyle = lipgloss.NewStyle().
-	Bold(true)
-
 func (m loadSongModel) View() string {
 	sb := strings.Builder{}
 

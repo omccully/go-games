@@ -17,40 +17,23 @@ const rockMeterIncrement = 0.02
 const rockMeterDecrement = 0.03
 const pointsPerNote = 50
 
-func noteSizeMultiplier(noteSize int) float64 {
-	switch noteSize {
-	case 1:
-		return 1.0
-	case 2:
-		return 1.5
-	case 3:
-		return 2.0
-	case 4:
-		return 2.5
-	case 5:
-		return 3.0
-	default:
-		return 2.0
-	}
-}
-
 func (ps *playStats) hitNote(noteSize int) {
 	ps.notesHit += noteSize
 	ps.noteStreak += noteSize
 	if ps.noteStreak > ps.bestNoteStreak {
 		ps.bestNoteStreak = ps.noteStreak
 	}
-	ps.increaseRockMeter(rockMeterIncrement * noteSizeMultiplier(noteSize))
+	ps.increaseRockMeter(rockMeterIncrement * noteSizeRockMeterMultiplier(noteSize))
 	ps.score += pointsPerNote * noteSize * ps.getMultiplier()
 }
 
 func (ps *playStats) missNote(noteSize int) {
-	ps.decreaseRockMeter(rockMeterDecrement * noteSizeMultiplier(noteSize))
+	ps.decreaseRockMeter(rockMeterDecrement * noteSizeRockMeterMultiplier(noteSize))
 	ps.noteStreak = 0
 }
 
 func (ps *playStats) overhitNote() {
-	ps.decreaseRockMeter(rockMeterDecrement * noteSizeMultiplier(1))
+	ps.decreaseRockMeter(rockMeterDecrement * noteSizeRockMeterMultiplier(1))
 	ps.noteStreak = 0
 }
 
@@ -73,11 +56,11 @@ func (ps *playStats) percentage() float64 {
 	return float64(ps.notesHit) / float64(ps.totalNotes)
 }
 
-func (ps *playStats) stars() int {
-	return calcStars(ps.score, ps.totalNotes)
+func (ps *playStats) starCount() int {
+	return calcStarCount(ps.score, ps.totalNotes)
 }
 
-func calcStars(score int, totalNotes int) int {
+func calcStarCount(score int, totalNotes int) int {
 	// https://guitarhero.fandom.com/wiki/Base_score
 	baseScore := totalNotes * pointsPerNote
 
@@ -99,7 +82,7 @@ func calcStars(score int, totalNotes int) int {
 	}
 }
 
-func starString(starCount int) string {
+func smallStarString(starCount int) string {
 	switch starCount {
 	case 1:
 		return "★☆☆☆☆"
@@ -124,6 +107,7 @@ func starString(starCount int) string {
 	}
 }
 
+// gets the multiplier that modifies how many points each note is worth
 func (ps playStats) getMultiplier() int {
 	if ps.noteStreak < 10 {
 		return 1
@@ -133,5 +117,23 @@ func (ps playStats) getMultiplier() int {
 		return 3
 	} else {
 		return 4
+	}
+}
+
+// gets the multiplier for how much the rock meter should increase/decrease based on note size
+func noteSizeRockMeterMultiplier(noteSize int) float64 {
+	switch noteSize {
+	case 1:
+		return 1.0
+	case 2:
+		return 1.5
+	case 3:
+		return 2.0
+	case 4:
+		return 2.5
+	case 5:
+		return 3.0
+	default:
+		return 2.0
 	}
 }

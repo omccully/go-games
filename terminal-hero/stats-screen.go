@@ -126,7 +126,7 @@ func (m statsScreenModel) View() string {
 
 		starArt := getAsciiArt("star.txt")
 		starArts := []string{}
-		starCount := m.playStats.stars()
+		starCount := m.playStats.starCount()
 		for i := 0; i < 5; i++ {
 			if i < starCount {
 				starArts = append(starArts, starStyle.Render(starArt))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -137,4 +138,12 @@ func setupKeymapForList(list *list.Model) {
 	list.KeyMap.PrevPage.SetKeys("left", "a")
 	list.KeyMap.CursorDown.SetKeys("down", "s")
 	list.KeyMap.CursorUp.SetKeys("up", "w")
+}
+
+func fileExists(path string) bool {
+	d, err := os.Stat(path)
+	if err != nil && os.IsNotExist(err) {
+		return false
+	}
+	return !d.IsDir()
 }

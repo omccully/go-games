@@ -28,16 +28,15 @@ type songSounds struct {
 	guitar playableSound[*effects.Volume]
 	song   playableSound[beep.StreamSeeker]
 	bass   playableSound[beep.StreamSeeker]
-	// guitarVolume *effects.Volume
 }
 
-func loadSoundEffects(spkr *thSpeaker) (soundEffects, error) {
+func loadSoundEffects(spkr soundPlayer) (soundEffects, error) {
 	wrongNoteSound, format, err := openAudioFileNonBuffered("wrong-note.wav")
 	if err != nil {
 		return soundEffects{}, err
 	}
 
-	buf := spkr.resampleIntoBuffer(wrongNoteSound, format)
+	buf := resampleIntoBuffer(spkr, wrongNoteSound, format)
 
 	return soundEffects{
 		wrongNote:   buf,
@@ -66,14 +65,6 @@ func wavDecoder(rc io.ReadCloser) (beep.StreamSeekCloser, beep.Format, error) {
 	ssc, f, err := wav.Decode(rc)
 	return ssc, f, err
 }
-
-// func openBufferedWavAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
-// 	return openBufferedAudioFileG(filePath, wavDecoder)
-// }
-
-// func openBufferedOggAudioFile(filePath string) (beep.StreamSeeker, beep.Format, error) {
-// 	return openBufferedAudioFileG(filePath, vorbis.Decode)
-// }
 
 type decoderFunc func(rc io.ReadCloser) (beep.StreamSeekCloser, beep.Format, error)
 
@@ -112,29 +103,11 @@ func openAudioFileG(filePath string, decoder decoderFunc) (beep.StreamSeekCloser
 	return decoder(fileReader)
 }
 
-func openBufferedAudioFileG(filePath string, decoder decoderFunc) (beep.StreamSeeker, beep.Format, error) {
-	streamer, format, err := openAudioFileG(filePath, decoder)
-	if err != nil {
-		return nil, beep.Format{}, err
-	}
-
-	defer streamer.Close()
-
-	bufferedStreamer := bufferStreamer(streamer, format)
-	return bufferedStreamer, format, nil
-}
-
 func bufferStreamer(streamer beep.Streamer, format beep.Format) beep.StreamSeeker {
 	buffer := beep.NewBuffer(format)
 	buffer.Append(streamer)
 	return buffer.Streamer(0, buffer.Len())
 }
-
-// func closeSoundStreams(songSounds songSounds) {
-// 	closeStreamSeeker(songSounds.guitar)
-// 	closeStreamSeeker(songSounds.song)
-// 	closeStreamSeeker(songSounds.bass)
-// }
 
 func closeStreamSeeker(streamer beep.Streamer) {
 	closer, ok := streamer.(beep.StreamSeekCloser)

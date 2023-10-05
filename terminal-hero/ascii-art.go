@@ -7,20 +7,6 @@ import (
 
 var asciiArtCache = map[string]string{}
 
-// type asciiArtCache struct {
-// 	fileName    string
-// 	initialized bool
-// 	art         string
-// }
-
-// func (a *asciiArtCache) getArt() string {
-// 	if !a.initialized {
-// 		a.art = loadAsciiArt(a.fileName)
-// 		a.initialized = true
-// 	}
-// 	return a.art
-// }
-
 func getAsciiArt(fileName string) string {
 	if _, ok := asciiArtCache[fileName]; !ok {
 		asciiArtCache[fileName], _ = loadAsciiArt(fileName)
@@ -35,5 +21,6 @@ func loadAsciiArt(fileName string) (string, error) {
 		return "Art failed to load -- " + err.Error(), err
 	}
 	// \r characters mess up the lipgloss styles, such as borders
+	// so they must be removed
 	return strings.Replace(string(file), "\r", "", -1), nil
 }

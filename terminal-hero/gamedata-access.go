@@ -312,15 +312,6 @@ func createAndGetSubDataFolder(subFolderName string) (string, error) {
 	return subFolderPath, nil
 }
 
-func createDataFolderIfDoesntExist() error {
-	folderPath, err := getGameDataFolder()
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(folderPath, 0755)
-	return err
-}
-
 func hashFileByPath(filePath string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {

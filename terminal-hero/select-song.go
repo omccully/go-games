@@ -58,14 +58,6 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 	return model
 }
 
-func fileExists(path string) bool {
-	d, err := os.Stat(path)
-	if err != nil && os.IsNotExist(err) {
-		return false
-	}
-	return !d.IsDir()
-}
-
 func initializeScores(flder *songFolder, ss *map[string]songScore) {
 	for _, f := range flder.subFolders {
 		if f.isLeaf {
@@ -94,7 +86,6 @@ type songFoldersLoadedMsg struct {
 
 func initializeSongFoldersCmd(rootPath string) tea.Cmd {
 	return func() tea.Msg {
-		// return songFoldersLoadedMsg{}
 		return songFoldersLoadedMsg{loadSongFolder(rootPath)}
 	}
 }
@@ -152,7 +143,6 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.previewSound.close()
 		}
 	case previewDelayTickMsg:
-
 		hcf := m.highlightedChildFolder()
 		if hcf != nil && hcf.previewFilePath() == msg.previewFilePath {
 			return m, loadPreviewSongCmd(msg.previewFilePath)

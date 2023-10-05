@@ -41,7 +41,7 @@ func (i *songFolder) Description() string {
 			b.WriteString(strconv.Itoa(v.Score))
 			b.WriteString(fmt.Sprintf(" (%.0f%%)", v.percentage()*100))
 			b.WriteRune(' ')
-			b.WriteString(starStyle.Render(starString(calcStars(v.Score, v.TotalNotes))))
+			b.WriteString(starStyle.Render(smallStarString(calcStarCount(v.Score, v.TotalNotes))))
 			first = false
 		}
 

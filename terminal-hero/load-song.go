@@ -27,7 +27,7 @@ type loadSongModel struct {
 	menuList        *list.Model
 	selectedTrack   string
 	backout         bool
-	speaker         *thSpeaker
+	speaker         soundPlayer
 }
 
 type loadedSoundEffectsMsg struct {
@@ -65,7 +65,7 @@ func (m loadSongModel) Init() tea.Cmd {
 	return tea.Batch(loadSongSoundsCmd(m.chartFolderPath, m.speaker), convertChartCmd(m.chartFolderPath), loadSongEffectsCmd(m.speaker), m.spinner.Tick)
 }
 
-func initialLoadModel(chartFolderPath string, track string, stngs settings, spkr *thSpeaker) loadSongModel {
+func initialLoadModel(chartFolderPath string, track string, stngs settings, spkr soundPlayer) loadSongModel {
 	s := spinner.New()
 	s.Spinner = spinner.Points
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
@@ -79,7 +79,7 @@ func initialLoadModel(chartFolderPath string, track string, stngs settings, spkr
 	}
 }
 
-func loadSongEffectsCmd(spkr *thSpeaker) tea.Cmd {
+func loadSongEffectsCmd(spkr soundPlayer) tea.Cmd {
 	return func() tea.Msg {
 		se, err := loadSoundEffects(spkr)
 
@@ -87,23 +87,23 @@ func loadSongEffectsCmd(spkr *thSpeaker) tea.Cmd {
 	}
 }
 
-func loadSongSoundsCmd(chartFolderPath string, spkr *thSpeaker) tea.Cmd {
+func loadSongSoundsCmd(chartFolderPath string, spkr soundPlayer) tea.Cmd {
 	return func() tea.Msg {
 		ss, err := loadSongSounds(chartFolderPath, spkr)
 		return loadedSongSoundsMsg{ss, err}
 	}
 }
 
-func loadResampledAndBufferedAudioFile(spkr *thSpeaker, filePath string) (playableSound[beep.StreamSeeker], error) {
+func loadResampledAndBufferedAudioFile(spkr soundPlayer, filePath string) (playableSound[beep.StreamSeeker], error) {
 	songStreamer, songFormat, err := openAudioFileNonBuffered(filePath)
 	if err != nil {
 		return playableSound[beep.StreamSeeker]{}, err
 	}
-	resampled := spkr.resampleIntoBuffer(songStreamer, songFormat)
+	resampled := resampleIntoBuffer(spkr, songStreamer, songFormat)
 	return resampled, nil
 }
 
-func loadSongSounds(chartFolderPath string, spkr *thSpeaker) (songSounds, error) {
+func loadSongSounds(chartFolderPath string, spkr soundPlayer) (songSounds, error) {
 	log.Info("loadSongSounds")
 
 	song, err := loadResampledAndBufferedAudioFile(spkr, filepath.Join(chartFolderPath, "song.ogg"))

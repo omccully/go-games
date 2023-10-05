@@ -31,7 +31,9 @@ type playableSound[T beep.Streamer] struct {
 }
 
 type soundPlayer interface {
-	play(snd sound)
+	play(stream beep.Streamer, format beep.Format)
+	resampleIfNeeded(stream beep.Streamer, oldFormat beep.Format) playableSound[beep.Streamer]
+	clear()
 }
 
 func (spkr *thSpeaker) init(format beep.Format) {
@@ -110,17 +112,18 @@ func (spkr *thSpeaker) resampleIfNeeded(stream beep.Streamer, oldFormat beep.For
 	}
 }
 
-func (spkr *thSpeaker) resampleIntoBuffer(stream beep.Streamer, oldFormat beep.Format) playableSound[beep.StreamSeeker] {
+func resampleIntoBuffer(spkr soundPlayer, stream beep.Streamer, oldFormat beep.Format) playableSound[beep.StreamSeeker] {
 	log.Info("resampleIntoBuffer %d", oldFormat)
 
 	result := spkr.resampleIfNeeded(stream, oldFormat)
-	buffered := bufferStreamer(result.soundStream, spkr.format)
+	spkrFormat := result.format
+	buffered := bufferStreamer(result.soundStream, spkrFormat)
 
 	closeStreamSeeker(stream)
 
 	return playableSound[beep.StreamSeeker]{
 		soundStream: buffered,
-		format:      spkr.format,
+		format:      spkrFormat,
 	}
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"time"
 
@@ -232,13 +233,27 @@ func isForceQuitMsg(msg tea.Msg) bool {
 	return false
 }
 
-func main() {
-	os.MkdirAll("\\log", 0755)
-	logFile, err := os.OpenFile("\\log\\terminalhero.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+func openLogFile() (*os.File, error) {
+	logFolderPath, err := createAndGetSubDataFolder("Logs")
 	if err != nil {
-		fmt.Println("error opening file: %v", err)
-		os.Exit(1)
+		return nil, err
 	}
+
+	logFilePath := filepath.Join(logFolderPath, "terminal-hero.log")
+	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Printf("error opening file: %v\n", err)
+		return nil, err
+	}
+	return logFile, nil
+}
+
+func main() {
+	logFile, err := openLogFile()
+	if err != nil {
+		panic(err)
+	}
+
 	log.SetOutput(logFile)
 	log.Info("Starting up")
 	defer logFile.Close()
