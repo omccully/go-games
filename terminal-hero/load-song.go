@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/effects"
 )
@@ -23,7 +24,7 @@ type loadSongModel struct {
 	soundEffects    *loadedSoundEffectsMsg
 	songSounds      *loadedSongSoundsMsg
 	chart           *loadedChartMsg
-	menuList        list.Model
+	menuList        *list.Model
 	selectedTrack   string
 	backout         bool
 	speaker         *thSpeaker
@@ -88,7 +89,7 @@ func loadSongEffectsCmd(spkr *thSpeaker) tea.Cmd {
 
 func loadSongSoundsCmd(chartFolderPath string, spkr *thSpeaker) tea.Cmd {
 	return func() tea.Msg {
-		ss, err := loadSoundSounds(chartFolderPath, spkr)
+		ss, err := loadSongSounds(chartFolderPath, spkr)
 		return loadedSongSoundsMsg{ss, err}
 	}
 }
@@ -102,7 +103,9 @@ func loadResampledAndBufferedAudioFile(spkr *thSpeaker, filePath string) (playab
 	return resampled, nil
 }
 
-func loadSoundSounds(chartFolderPath string, spkr *thSpeaker) (songSounds, error) {
+func loadSongSounds(chartFolderPath string, spkr *thSpeaker) (songSounds, error) {
+	log.Info("loadSongSounds")
+
 	song, err := loadResampledAndBufferedAudioFile(spkr, filepath.Join(chartFolderPath, "song.ogg"))
 	if err != nil {
 		return songSounds{}, err
@@ -237,22 +240,25 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selectTrackMenuList.DisableQuitKeybindings()
 			styleList(&selectTrackMenuList)
 			setupKeymapForList(&selectTrackMenuList)
-			m.menuList = selectTrackMenuList
+			m.menuList = &selectTrackMenuList
 		}
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			tn, ok := m.menuList.SelectedItem().(trackName)
-			if ok {
-				m.selectedTrack = tn.fullTrackName
-			} else {
-				to := reflect.TypeOf(m.menuList.SelectedItem()).String()
-				panic("selected track is not a trackName " + to)
+			if m.menuList != nil {
+				tn, ok := m.menuList.SelectedItem().(trackName)
+				if ok {
+					m.selectedTrack = tn.fullTrackName
+				} else {
+					to := reflect.TypeOf(m.menuList.SelectedItem()).String()
+					panic("selected track is not a trackName " + to)
+				}
 			}
 		case "backspace":
 			m.backout = true
 		default:
-			m.menuList, _ = m.menuList.Update(msg)
+			menuList, _ := m.menuList.Update(msg)
+			m.menuList = &menuList
 		}
 
 	}

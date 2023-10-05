@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/log"
 	"github.com/faiface/beep/speaker"
 )
 
@@ -389,6 +390,7 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.viewModel.NoteLine[m.getStrumLineIndex()-1].DisplayTimeMs == 0 {
 			if !m.startedMusic {
+				log.Info("Starting song music")
 				m.speaker.play(m.songSounds.song.soundStream, m.songSounds.song.format)
 				m.speaker.play(m.songSounds.guitar.soundStream, m.songSounds.guitar.format)
 				if m.songSounds.bass.soundStream != nil {
