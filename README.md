@@ -41,6 +41,10 @@ Because Terminal Hero supports the standard midi and chart file formats, you can
 
 https://docs.google.com/spreadsheets/u/0/d/13B823ukxdVMocowo1s5XnT3tzciOfruhUVePENKc01o/htmlview#gid=0
 
+## Converting .mid files to .chart
+
+A Java .jar program is used to convert the .mid file to a .chart file. You must have a Java Runtime installed that supports class file version 65.0. 
+
 ## Usage
 
 Start the game by typing `terminal-hero` in your terminal

@@ -33,6 +33,7 @@ type mainModel struct {
 	songRootPath     string
 	dbAccessor       grDbAccessor
 	settings         settings
+	speaker          *thSpeaker
 }
 
 type settings struct {
@@ -59,10 +60,13 @@ func initialMainModel() mainModel {
 		panic(err)
 	}
 
+	spkr := thSpeaker{}
+
 	return mainModel{
 		state:        initialLoad,
 		songRootPath: songRootPath,
 		settings:     settings,
+		speaker:      &spkr,
 	}
 }
 
@@ -110,7 +114,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			panic(msg.err)
 		}
 		m.dbAccessor = msg.dbAccessor
-		m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
+		m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings, m.speaker)
 		m.state = chooseSong
 		return m, m.selectSongModel.Init()
 	}
@@ -121,7 +125,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		selectedSong := selectModel.(selectSongModel).selectedSongPath
 		if selectedSong != "" {
 			ssPath := selectModel.(selectSongModel).selectedSongPath
-			loadModel := initialLoadModel(ssPath, "", m.settings)
+			loadModel := initialLoadModel(ssPath, "", m.settings, m.speaker)
 			lmCmd := loadModel.Init()
 			m.state = loadSong
 			m.loadSongModel = loadModel
@@ -135,7 +139,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if loadModel.backout {
 			m.state = chooseSong
-			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
+			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings, m.speaker)
 
 			initCmd := m.selectSongModel.Init()
 
@@ -160,7 +164,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pm := playModel.(playSongModel)
 
 		if pm.playStats.failed || (pm.playStats.finished() && pm.songIsFinished()) {
-			m.statsScreenModel = initialStatsScreenModel(pm.chartInfo, pm.playStats, m.songRootPath, m.dbAccessor)
+			m.statsScreenModel = initialStatsScreenModel(pm.chartInfo, pm.playStats, m.songRootPath, m.dbAccessor, m.speaker)
 			m.state = statsScreen
 			pm.destroy()
 			return m, m.statsScreenModel.Init()
@@ -174,7 +178,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statsScreenModel = statsModel.(statsScreenModel)
 		if m.statsScreenModel.shouldContinue {
 			m.statsScreenModel.destroy()
-			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings)
+			m.selectSongModel = initialSelectSongModel(m.songRootPath, m.dbAccessor, m.settings, m.speaker)
 			m.state = chooseSong
 
 			ci := m.statsScreenModel.chartInfo
@@ -229,12 +233,15 @@ func isForceQuitMsg(msg tea.Msg) bool {
 }
 
 func main() {
-	f, err := tea.LogToFile("debug.log", "debug")
+
+	logFile, err := os.OpenFile("debug.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		fmt.Println("fatal:", err)
+		fmt.Println("error opening file: %v", err)
 		os.Exit(1)
 	}
-	defer f.Close()
+	log.SetOutput(logFile)
+	log.Info("Starting up")
+	defer logFile.Close()
 
 	p := tea.NewProgram(initialMainModel())
 	if _, err := p.Run(); err != nil {

@@ -7,14 +7,13 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/faiface/beep"
 	"github.com/faiface/beep/effects"
-	"github.com/faiface/beep/speaker"
 )
 
 type loadSongModel struct {
@@ -27,6 +26,7 @@ type loadSongModel struct {
 	menuList        list.Model
 	selectedTrack   string
 	backout         bool
+	speaker         *thSpeaker
 }
 
 type loadedSoundEffectsMsg struct {
@@ -61,10 +61,10 @@ func (i trackName) Description() string {
 func (i trackName) FilterValue() string { return i.fullTrackName }
 
 func (m loadSongModel) Init() tea.Cmd {
-	return tea.Batch(loadSongSoundsCmd(m.chartFolderPath), convertChartCmd(m.chartFolderPath), loadSongEffectsCmd, m.spinner.Tick)
+	return tea.Batch(loadSongSoundsCmd(m.chartFolderPath, m.speaker), convertChartCmd(m.chartFolderPath), loadSongEffectsCmd(m.speaker), m.spinner.Tick)
 }
 
-func initialLoadModel(chartFolderPath string, track string, stngs settings) loadSongModel {
+func initialLoadModel(chartFolderPath string, track string, stngs settings, spkr *thSpeaker) loadSongModel {
 	s := spinner.New()
 	s.Spinner = spinner.Points
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
@@ -74,48 +74,54 @@ func initialLoadModel(chartFolderPath string, track string, stngs settings) load
 		settings:        stngs,
 		spinner:         s,
 		selectedTrack:   track,
+		speaker:         spkr,
 	}
 }
 
-func loadSongEffectsCmd() tea.Msg {
-	se, err := loadSoundEffects()
+func loadSongEffectsCmd(spkr *thSpeaker) tea.Cmd {
+	return func() tea.Msg {
+		se, err := loadSoundEffects(spkr)
 
-	return loadedSoundEffectsMsg{se, err}
+		return loadedSoundEffectsMsg{se, err}
+	}
 }
 
-func loadSongSoundsCmd(chartFolderPath string) tea.Cmd {
+func loadSongSoundsCmd(chartFolderPath string, spkr *thSpeaker) tea.Cmd {
 	return func() tea.Msg {
-		ss, err := loadSoundSounds(chartFolderPath)
+		ss, err := loadSoundSounds(chartFolderPath, spkr)
 		return loadedSongSoundsMsg{ss, err}
 	}
 }
 
-func loadSoundSounds(chartFolderPath string) (songSounds, error) {
-	songStreamer, songFormat, err := openBufferedOggAudioFile(filepath.Join(chartFolderPath, "song.ogg"))
+func loadResampledAndBufferedAudioFile(spkr *thSpeaker, filePath string) (playableSound[beep.StreamSeeker], error) {
+	songStreamer, songFormat, err := openAudioFileNonBuffered(filePath)
+	if err != nil {
+		return playableSound[beep.StreamSeeker]{}, err
+	}
+	resampled := spkr.resampleIntoBuffer(songStreamer, songFormat)
+	return resampled, nil
+}
+
+func loadSoundSounds(chartFolderPath string, spkr *thSpeaker) (songSounds, error) {
+	song, err := loadResampledAndBufferedAudioFile(spkr, filepath.Join(chartFolderPath, "song.ogg"))
 	if err != nil {
 		return songSounds{}, err
 	}
-	guitarStreamer, guitarFormat, err := openBufferedOggAudioFile(filepath.Join(chartFolderPath, "guitar.ogg"))
+	guitar, err := loadResampledAndBufferedAudioFile(spkr, filepath.Join(chartFolderPath, "guitar.ogg"))
 	if err != nil {
 		return songSounds{}, err
 	}
-	bassStreamer, bassFormat, _ := openBufferedOggAudioFile(filepath.Join(chartFolderPath, "rhythm.ogg"))
+	bass, _ := loadResampledAndBufferedAudioFile(spkr, filepath.Join(chartFolderPath, "rhythm.ogg"))
 
-	ss := songSounds{guitarStreamer, songStreamer, bassStreamer, songFormat, nil}
-
-	if guitarFormat.SampleRate != songFormat.SampleRate {
-		return ss, errors.New("guitar and song sample rates do not match")
-	}
-	if bassStreamer != nil && bassFormat.SampleRate != songFormat.SampleRate {
-		return ss, errors.New("bass and song sample rates do not match")
-	}
-
-	ss.guitarVolume = &effects.Volume{
-		Streamer: guitarStreamer,
+	guitarVolume := &effects.Volume{
+		Streamer: guitar.soundStream,
 		Base:     2,
 		Volume:   0,
 		Silent:   false,
 	}
+	guitarVol := playableSound[*effects.Volume]{guitarVolume, guitar.format}
+
+	ss := songSounds{guitarVol, song, bass}
 
 	return ss, nil
 }
@@ -202,7 +208,7 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.soundEffects = &msg
 	case loadedSongSoundsMsg:
 		m.songSounds = &msg
-		speaker.Init(m.songSounds.songSounds.songFormat.SampleRate, m.songSounds.songSounds.songFormat.SampleRate.N(time.Second/10))
+
 	case loadedChartMsg:
 		m.chart = &msg
 

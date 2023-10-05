@@ -9,7 +9,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/faiface/beep/speaker"
 )
 
 type selectSongModel struct {
@@ -22,6 +21,7 @@ type selectSongModel struct {
 	songScores                   *map[string]songScore
 	previewSound                 *sound
 	defaultHighlightRelativePath string
+	speaker                      *thSpeaker
 }
 
 type previewDelayTickMsg struct {
@@ -38,7 +38,7 @@ type previewSongLoadFailedMsg struct {
 	err             error
 }
 
-func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings) selectSongModel {
+func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings, spkr *thSpeaker) selectSongModel {
 	model := selectSongModel{}
 
 	selectSongMenuList := list.New([]list.Item{}, createListDd(true), 0, 0)
@@ -54,6 +54,7 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 
 	model.dbAccessor = dbAccessor
 	model.rootPath = rootPath
+	model.speaker = spkr
 	return model
 }
 
@@ -109,9 +110,6 @@ func initializeTrackScoresCmd(dbAccessor grDbAccessor) tea.Cmd {
 }
 
 func (m selectSongModel) Init() tea.Cmd {
-	//eturn nil
-	//return initializeSongFoldersCmd(m.rootPath)
-	//return initializeTrackScoresCmd(m.dbAccessor)
 	return tea.Batch(initializeSongFoldersCmd(m.rootPath), initializeTrackScoresCmd(m.dbAccessor))
 }
 
@@ -147,8 +145,7 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case previewSongLoadedMsg:
 		hcf := m.highlightedChildFolder()
 		if hcf != nil && hcf.previewFilePath() == msg.previewFilePath {
-			speaker.Init(msg.previewSound.format.SampleRate, msg.previewSound.format.SampleRate.N(time.Second/10))
-			speaker.Play(msg.previewSound.soundStream)
+			m.speaker.play(msg.previewSound.soundStream, msg.previewSound.format)
 			m.previewSound = &msg.previewSound
 		} else {
 			// no longer needed. user is viewing different song
@@ -237,7 +234,7 @@ func (m selectSongModel) checkInitiateSongPreview() (selectSongModel, tea.Cmd) {
 
 func (m selectSongModel) clearSongPreview() selectSongModel {
 	if m.previewSound != nil {
-		speaker.Clear()
+		m.speaker.clear()
 		m.previewSound.close()
 		m.previewSound = nil
 	}
@@ -258,7 +255,7 @@ func (m selectSongModel) highlightedChildFolder() *songFolder {
 
 func loadPreviewSongCmd(previewFilePath string) tea.Cmd {
 	return func() tea.Msg {
-		s, format, err := openBufferedOggAudioFile(previewFilePath)
+		s, format, err := openAudioFileNonBuffered(previewFilePath)
 		if err != nil {
 			return previewSongLoadFailedMsg{previewFilePath, err}
 		} else {

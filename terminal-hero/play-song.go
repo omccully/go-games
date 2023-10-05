@@ -5,7 +5,6 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/log"
 	"github.com/faiface/beep/speaker"
 )
 
@@ -26,6 +25,7 @@ type playSongModel struct {
 	songSounds   songSounds
 	soundEffects soundEffects
 	startedMusic bool
+	speaker      *thSpeaker
 }
 
 const (
@@ -73,6 +73,7 @@ func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
 	model.soundEffects = lm.soundEffects.soundEffects
 
 	model.startTime = time.Now()
+	model.speaker = lm.speaker
 	return model
 }
 
@@ -89,15 +90,20 @@ func createModelFromChart(chart *Chart, trackName string, stngs settings) playSo
 
 	startTime := time.Time{}
 
-	return playSongModel{chart, chartInfo{}, playableNotes, startTime, 0,
-		stngs,
-		playStats{-1, len(playableNotes), 0, 0, 0.5, 0, 0, false},
-		0, viewModel{}, songSounds{}, soundEffects{}, false}
+	return playSongModel{
+		chart:         chart,
+		realTimeNotes: playableNotes,
+		startTime:     startTime,
+		settings:      stngs,
+		playStats: playStats{
+			lastPlayedNoteIndex: -1,
+			totalNotes:          len(playableNotes),
+			rockMeter:           0.5,
+		},
+	}
 }
 
 func (m playSongModel) Init() tea.Cmd {
-	log.Info(m.songSounds.songFormat)
-
 	return tea.Batch(timerCmd(m.settings.lineTime))
 }
 
@@ -216,7 +222,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				speaker.Lock()
 				m.soundEffects.wrongNote.soundStream.Seek(0)
 				speaker.Unlock()
-				speaker.Play(m.soundEffects.wrongNote.soundStream)
+				m.speaker.play(m.soundEffects.wrongNote.soundStream, m.soundEffects.wrongNote.format)
 			}
 
 			break
@@ -357,18 +363,17 @@ func (m playSongModel) unmuteGuitar() {
 }
 
 func (m playSongModel) setGuitarSilent(silent bool) {
-	if m.songSounds.guitarVolume == nil {
+	if m.songSounds.guitar.soundStream == nil {
 		// for unit tests to work
 		return
 	}
 	speaker.Lock()
-	m.songSounds.guitarVolume.Silent = silent
+	m.songSounds.guitar.soundStream.Silent = silent
 	speaker.Unlock()
 }
 
 func (m playSongModel) destroy() {
-	speaker.Clear()
-	closeSoundStreams(m.songSounds)
+	m.speaker.clear()
 }
 
 func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -384,10 +389,10 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.viewModel.NoteLine[m.getStrumLineIndex()-1].DisplayTimeMs == 0 {
 			if !m.startedMusic {
-				speaker.Play(m.songSounds.song)
-				speaker.Play(m.songSounds.guitarVolume)
-				if m.songSounds.bass != nil {
-					speaker.Play(m.songSounds.bass)
+				m.speaker.play(m.songSounds.song.soundStream, m.songSounds.song.format)
+				m.speaker.play(m.songSounds.guitar.soundStream, m.songSounds.guitar.format)
+				if m.songSounds.bass.soundStream != nil {
+					m.speaker.play(m.songSounds.bass.soundStream, m.songSounds.bass.format)
 				}
 				m.startedMusic = true
 			}
@@ -464,7 +469,7 @@ func (m playSongModel) currentStrumTimeMs() int {
 
 func (m playSongModel) songIsFinished() bool {
 	speaker.Lock()
-	finished := m.songSounds.song.Position() == m.songSounds.song.Len()
+	finished := m.songSounds.song.soundStream.Position() == m.songSounds.song.soundStream.Len()
 	speaker.Unlock()
 	return finished
 }

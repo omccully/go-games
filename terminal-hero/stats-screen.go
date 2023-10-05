@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/faiface/beep"
-	"github.com/faiface/beep/speaker"
 )
 
 var errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
@@ -37,6 +35,7 @@ type statsScreenModel struct {
 	shouldContinue     bool
 	db                 grDbAccessor
 	soundEffect        statsScreenSoundLoadedMsg
+	speaker            *thSpeaker
 }
 
 type statsScreenSoundLoadedMsg struct {
@@ -44,13 +43,20 @@ type statsScreenSoundLoadedMsg struct {
 	err   error
 }
 
-func initialStatsScreenModel(ci chartInfo, ps playStats, songRootPath string, db grDbAccessor) statsScreenModel {
+func initialStatsScreenModel(ci chartInfo, ps playStats, songRootPath string, db grDbAccessor, spkr *thSpeaker) statsScreenModel {
 	var sssErr error = nil
 	if !ps.failed {
 		sssErr = saveSongScore(db, ci, ps, songRootPath)
 	}
 
-	return statsScreenModel{ci, ps, sssErr, songRootPath, false, db, statsScreenSoundLoadedMsg{}}
+	return statsScreenModel{
+		chartInfo:          ci,
+		playStats:          ps,
+		saveSongScoreError: sssErr,
+		songRootPath:       songRootPath,
+		db:                 db,
+		speaker:            spkr,
+	}
 }
 
 func saveSongScore(db grDbAccessor, ci chartInfo, ps playStats, songRootPath string) error {
@@ -75,16 +81,17 @@ func loadStatsScreenSoundCmd(passed bool) tea.Cmd {
 		var fmt beep.Format
 		var err error
 		if passed {
-			ss, fmt, err = openAudioFile("passed.wav")
+
+			ss, fmt, err = openAudioFileNonBuffered("passed.wav")
 		} else {
-			ss, fmt, err = openAudioFile("failed.wav")
+			ss, fmt, err = openAudioFileNonBuffered("failed.wav")
 		}
 		return statsScreenSoundLoadedMsg{sound{ss, fmt, ""}, err}
 	}
 }
 
 func (m statsScreenModel) destroy() {
-	speaker.Clear()
+	m.speaker.clear()
 	m.soundEffect.sound.close()
 }
 
@@ -104,8 +111,7 @@ func (m statsScreenModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return m, nil
 		}
-		speaker.Init(msg.sound.format.SampleRate, msg.sound.format.SampleRate.N(time.Second/10))
-		speaker.Play(msg.sound.soundStream)
+		m.speaker.play(m.soundEffect.sound.soundStream, m.soundEffect.sound.format)
 	}
 	return m, nil
 }
