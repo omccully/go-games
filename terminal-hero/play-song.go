@@ -27,6 +27,7 @@ type playSongModel struct {
 	soundEffects soundEffects
 	startedMusic bool
 	speaker      *thSpeaker
+	simpleMode   bool
 }
 
 const (
@@ -419,6 +420,8 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else if strings.Contains("vbnnm,./", keyName) {
 			m = m.playLastHitNoteNow()
+		} else if keyName == "0" {
+			m.simpleMode = !m.simpleMode
 		}
 	case tea.WindowSizeMsg:
 		m.settings.fretBoardHeight = msg.Height - 3

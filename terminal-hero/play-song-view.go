@@ -9,12 +9,24 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var noteStyles [5]lipgloss.Style = [5]lipgloss.Style{
+var gNoteStyles [5]lipgloss.Style = [5]lipgloss.Style{
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#25b12b")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#b4242d")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#f6fa41")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#317fdb")),
 	lipgloss.NewStyle().Foreground(lipgloss.Color("#e68226")),
+}
+
+var gpNoteStyles [5]*lipgloss.Style = [5]*lipgloss.Style{
+	&gNoteStyles[0],
+	&gNoteStyles[1],
+	&gNoteStyles[2],
+	&gNoteStyles[3],
+	&gNoteStyles[4],
+}
+
+var gpSimpleNoteStyles [5]*lipgloss.Style = [5]*lipgloss.Style{
+	nil, nil, nil, nil, nil,
 }
 
 var multiplierStyles [4]lipgloss.Style = [4]lipgloss.Style{
@@ -34,13 +46,18 @@ var rockMeterBorderStyle = lipgloss.NewStyle().
 	Padding(0, 1, 0, 1).
 	Border(lipgloss.RoundedBorder())
 
-var overhitStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff"))
+var gOverhitStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff"))
 
-func (m playSongModel) View() string {
+func writeStyledString(r *strings.Builder, style *lipgloss.Style, str string) {
+	strToWrite := str
+	if style != nil {
+		strToWrite = style.Render(str)
+	}
+	r.WriteString(strToWrite)
+}
 
-	r := strings.Builder{}
+func (m playSongModel) CreateFretboardView(r *strings.Builder, noteStyles [5]*lipgloss.Style, overhitStyle *lipgloss.Style) {
 	strumLineIndex := m.getStrumLineIndex()
-	// songInfoLineIndex := strumLineIndex - 6
 
 	for i, line := range m.viewModel.NoteLine {
 		r.WriteString(" | ")
@@ -51,23 +68,23 @@ func (m playSongModel) View() string {
 				r.WriteRune(' ')
 			}
 
+			noteStyle := noteStyles[noteType]
 			if isNote {
-				r.WriteString(noteStyles[noteType].Render("(" + (strconv.Itoa(noteType + 1)) + ")"))
+				writeStyledString(r, noteStyle, "("+(strconv.Itoa(noteType+1))+")")
 			} else {
 				if i == strumLineIndex {
 					if m.viewModel.noteStates[noteType].overHit {
-						r.WriteString(overhitStyle.Render("-X-"))
+						writeStyledString(r, overhitStyle, "-X-")
 					} else {
-						r.WriteString(noteStyles[noteType].Render("---"))
+						writeStyledString(r, noteStyle, "---")
 					}
 				} else {
 					isHeldNote := line.HeldNotes[noteType]
 					if isHeldNote && i < strumLineIndex {
-						r.WriteString(noteStyles[noteType].Render(" | "))
+						writeStyledString(r, noteStyle, " | ")
 					} else {
 						r.WriteString("   ")
 					}
-
 				}
 			}
 
@@ -82,6 +99,17 @@ func (m playSongModel) View() string {
 		//r.WriteString(strconv.Itoa(line.DisplayTimeMs))
 		r.WriteRune('\n')
 	}
+}
+
+func (m playSongModel) SimpleView() string {
+	r := strings.Builder{}
+	m.CreateFretboardView(&r, gpSimpleNoteStyles, nil)
+	return r.String()
+}
+
+func (m playSongModel) ComplexView() string {
+	r := strings.Builder{}
+	m.CreateFretboardView(&r, gpNoteStyles, &gOverhitStyle)
 
 	scoreAndMultiplier := strings.Builder{}
 
@@ -112,6 +140,14 @@ func (m playSongModel) View() string {
 		"        ", r.String(), "        ",
 		rockMeterBorderStyle.Foreground(lipgloss.Color("#"+rockMeterColorMax.Hex())).
 			BorderForeground(lipgloss.Color("#"+rockMeterColorMax.Hex())).Render(rockMeter.String()))
+}
+
+func (m playSongModel) View() string {
+	if m.simpleMode {
+		return m.SimpleView()
+	} else {
+		return m.ComplexView()
+	}
 }
 
 type color struct {
