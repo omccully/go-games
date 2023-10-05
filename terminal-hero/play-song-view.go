@@ -104,6 +104,7 @@ func (m playSongModel) CreateFretboardView(r *strings.Builder, noteStyles [5]*li
 func (m playSongModel) SimpleView() string {
 	r := strings.Builder{}
 	m.CreateFretboardView(&r, gpSimpleNoteStyles, nil)
+	r.WriteString("\nPress 0 to exit simple mode")
 	return r.String()
 }
 
