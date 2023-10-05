@@ -233,8 +233,8 @@ func isForceQuitMsg(msg tea.Msg) bool {
 }
 
 func main() {
-
-	logFile, err := os.OpenFile("debug.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	os.MkdirAll("\\log", 0755)
+	logFile, err := os.OpenFile("\\log\\terminalhero.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Println("error opening file: %v", err)
 		os.Exit(1)
