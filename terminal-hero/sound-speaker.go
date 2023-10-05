@@ -58,6 +58,7 @@ func (spkr *thSpeaker) finishInit() {
 	bufSize := spkr.format.SampleRate.N(time.Second / 10)
 	speaker.Init(spkr.format.SampleRate, bufSize)
 	log.Info(fmt.Sprintf("Initialized speaker with format %d", spkr.format))
+	spkr.state = speakerFullyInitialized
 }
 
 // plays sounds. should only be called from the main thread
