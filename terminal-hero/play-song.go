@@ -333,7 +333,9 @@ func (m playSongModel) setGuitarSilent(silent bool) {
 }
 
 func (m playSongModel) destroy() {
-	m.speaker.clear()
+	if m.speaker != nil {
+		m.speaker.clear()
+	}
 }
 
 func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
