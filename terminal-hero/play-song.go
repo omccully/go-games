@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/log"
+	"github.com/faiface/beep/effects"
 	"github.com/faiface/beep/speaker"
 )
 
@@ -187,7 +188,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			// missed a previous note
 			m.playStats.lastPlayedNoteIndex = i
 			m.playStats.missNote(1)
-			m.muteGuitar()
+			m.muteCurrentInstrument()
 
 			// continue to check next note
 			continue
@@ -205,7 +206,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			m.viewModel.noteStates[colorIndex].overHit = true
 			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
 			m.playStats.overhitNote()
-			m.muteGuitar()
+			m.muteCurrentInstrument()
 
 			if m.soundEffects.initialized {
 				speaker.Lock()
@@ -229,7 +230,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				m.playStats.hitNote(1)
 				m.viewModel.noteStates[colorIndex].playedCorrectly = true
 				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
-				m.unmuteGuitar()
+				m.unmuteCurrentInstrument()
 				m.playStats.lastPlayedNoteIndex = i
 				break
 			}
@@ -246,7 +247,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 					if m.viewModel.noteStates[colorIndex].lastCorrectlyPlayedChordNoteTimeMs == chordNote.TimeStamp {
 						// already played!!
 						m.playStats.overhitNote()
-						m.muteGuitar()
+						m.muteCurrentInstrument()
 						allChordNotesPlayed = false
 						overhitChord = true
 						for _, chordNote2 := range chord {
@@ -289,7 +290,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 
 					m.realTimeNotes[i+ci].played = true
 				}
-				m.unmuteGuitar()
+				m.unmuteCurrentInstrument()
 				m.playStats.lastPlayedNoteIndex += len(chord)
 				break
 			} else {
@@ -314,21 +315,40 @@ func refreshNoteStates(vm viewModel, strumTimeMs int) viewModel {
 	return vm
 }
 
-func (m playSongModel) muteGuitar() {
+func (m playSongModel) muteCurrentInstrument() {
 	m.setGuitarSilent(true)
 }
 
-func (m playSongModel) unmuteGuitar() {
+func (m playSongModel) unmuteCurrentInstrument() {
 	m.setGuitarSilent(false)
 }
 
+func (m playSongModel) currentInstrumentVolumeControl() *effects.Volume {
+	tn := parseTrackName(m.chartInfo.track)
+	switch tn.instrument {
+	case instrumentGuitar:
+		return m.songSounds.guitar.soundStream
+	case instrumentBass:
+		return m.songSounds.bass.soundStream
+	case instrumentDrums:
+		return m.songSounds.drums.soundStream
+	}
+	return nil
+}
+
 func (m playSongModel) setGuitarSilent(silent bool) {
-	if m.songSounds.guitar.soundStream == nil {
+	volControl := m.currentInstrumentVolumeControl()
+	if volControl == nil {
 		// for unit tests to work
 		return
 	}
+
+	if silent == volControl.Silent {
+		return
+	}
+
 	speaker.Lock()
-	m.songSounds.guitar.soundStream.Silent = silent
+	volControl.Silent = silent
 	speaker.Unlock()
 }
 
@@ -352,10 +372,19 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.viewModel.NoteLine[m.getStrumLineIndex()-1].DisplayTimeMs == 0 {
 			if !m.startedMusic {
 				log.Info("Starting song music")
+
 				m.speaker.play(m.songSounds.song.soundStream, m.songSounds.song.format)
-				m.speaker.play(m.songSounds.guitar.soundStream, m.songSounds.guitar.format)
+
+				if m.songSounds.guitar.soundStream != nil {
+					m.speaker.play(m.songSounds.guitar.soundStream, m.songSounds.guitar.format)
+				}
+
 				if m.songSounds.bass.soundStream != nil {
 					m.speaker.play(m.songSounds.bass.soundStream, m.songSounds.bass.format)
+				}
+
+				if m.songSounds.drums.soundStream != nil {
+					m.speaker.play(m.songSounds.drums.soundStream, m.songSounds.drums.format)
 				}
 				m.startedMusic = true
 			}

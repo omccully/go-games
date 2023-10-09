@@ -163,3 +163,45 @@ func TestSplitFolderPath(t *testing.T) {
 		t.Errorf("Expected %v, got %v", expected, actual)
 	}
 }
+
+func TestInstrumentSoundFiles(t *testing.T) {
+	customInstrumentSoundFileTest(t, instrumentDrums, "drums.ogg", true)
+	customInstrumentSoundFileTest(t, instrumentDrums, "gumdrums.ogg", false)
+	customInstrumentSoundFileTest(t, instrumentDrums, "drums_1.ogg", true)
+	customInstrumentSoundFileTest(t, instrumentDrums, "drums_3.ogg", true)
+
+	customInstrumentSoundFileTest(t, instrumentGuitar, "guitar.ogg", true)
+	customInstrumentSoundFileTest(t, instrumentGuitar, "geetar.ogg", false)
+
+	customInstrumentSoundFileTest(t, instrumentBass, "bass.ogg", true)
+	customInstrumentSoundFileTest(t, instrumentBass, "rhythm.ogg", true)
+	customInstrumentSoundFileTest(t, instrumentBass, "bassfish.ogg", false)
+
+	customInstrumentSoundFileTest(t, instrumentMisc, "song.ogg", true)
+	customInstrumentSoundFileTest(t, instrumentMisc, "vocals.ogg", true)
+	customInstrumentSoundFileTest(t, instrumentMisc, "keys.ogg", true)
+	//customInstrumentSoundFileTest(t, instrumentMisc, "crowd.ogg", true)
+}
+
+func customInstrumentSoundFileTest(t *testing.T, instrument string, fileName string, expectedMatch bool) {
+	actualMatch := isMatchingInstrumentSoundFile(instrument, fileName)
+
+	if actualMatch != expectedMatch {
+		t.Errorf("Expected %v for %s %s, got %v", expectedMatch, instrument, fileName, actualMatch)
+	}
+
+	keys := make([]string, 0)
+
+	for k := range instrumentSoundFiles {
+		if k != instrument {
+			keys = append(keys, k)
+		}
+	}
+
+	// expect file to not match for other instruments
+	for _, k := range keys {
+		if isMatchingInstrumentSoundFile(k, fileName) {
+			t.Errorf("Expected %v, got %v", false, true)
+		}
+	}
+}

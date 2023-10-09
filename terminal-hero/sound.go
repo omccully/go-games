@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/faiface/beep"
@@ -12,6 +14,35 @@ import (
 	"github.com/faiface/beep/vorbis"
 	"github.com/faiface/beep/wav"
 )
+
+const (
+	instrumentGuitar = "Guitar"
+	instrumentBass   = "Bass"
+	instrumentDrums  = "Drums"
+	instrumentMisc   = "Misc"
+)
+
+var instrumentSoundFiles = map[string]*regexp.Regexp{
+	instrumentDrums:  takeRegex(regexp.Compile(`^drums(_[0-9]+)?\.`)),
+	instrumentGuitar: takeRegex(regexp.Compile(`^guitar\.`)),
+	instrumentBass:   takeRegex(regexp.Compile(`^(bass|rhythm)\.`)),
+	instrumentMisc:   takeRegex(regexp.Compile(`^(song|vocals|keys)\.`)),
+}
+
+func isMatchingInstrumentSoundFile(instrument string, fileName string) bool {
+	regex, ok := instrumentSoundFiles[instrument]
+	if !ok {
+		return false
+	}
+	return regex.MatchString(fileName)
+}
+
+func takeRegex(r *regexp.Regexp, err error) *regexp.Regexp {
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
 
 type sound struct {
 	soundStream beep.Streamer
@@ -27,7 +58,8 @@ type soundEffects struct {
 type songSounds struct {
 	guitar playableSound[*effects.Volume]
 	song   playableSound[beep.StreamSeeker]
-	bass   playableSound[beep.StreamSeeker]
+	bass   playableSound[*effects.Volume]
+	drums  playableSound[*effects.Volume]
 }
 
 func loadSoundEffects(spkr soundPlayer) (soundEffects, error) {
@@ -54,8 +86,11 @@ func getAudioDecoderForFile(filePath string) decoderFunc {
 	}
 }
 
-func openAudioFileNonBuffered(filePath string) (beep.StreamSeeker, beep.Format, error) {
+func openAudioFileNonBuffered(filePath string) (beep.StreamSeekCloser, beep.Format, error) {
 	decoder := getAudioDecoderForFile(filePath)
+	if decoder == nil {
+		return nil, beep.Format{}, errors.New("Unsupported file type: " + filePath)
+	}
 	return openAudioFileG(filePath, decoder)
 }
 

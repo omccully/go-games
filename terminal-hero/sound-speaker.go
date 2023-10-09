@@ -101,7 +101,7 @@ func (spkr *thSpeaker) resampleIfNeeded(stream beep.Streamer, oldFormat beep.For
 		spkr.partialInit(oldFormat)
 	} else if oldFormat.SampleRate != spkr.format.SampleRate {
 		log.Info(fmt.Sprintf("Resampling from %d to %d", oldFormat.SampleRate, spkr.format.SampleRate))
-		result = beep.Resample(4, oldFormat.SampleRate, spkr.format.SampleRate, stream)
+		result = beep.Resample(8, oldFormat.SampleRate, spkr.format.SampleRate, stream)
 	} else {
 		log.Info(fmt.Sprintf("No resampling needed from %d to %d", oldFormat.SampleRate, spkr.format.SampleRate))
 	}

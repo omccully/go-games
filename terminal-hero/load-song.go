@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -94,39 +95,100 @@ func loadSongSoundsCmd(chartFolderPath string, spkr soundPlayer) tea.Cmd {
 	}
 }
 
-func loadResampledAndBufferedAudioFile(spkr soundPlayer, filePath string) (playableSound[beep.StreamSeeker], error) {
-	songStreamer, songFormat, err := openAudioFileNonBuffered(filePath)
+func isSupportedAudioFile(fileName string) bool {
+	return strings.HasSuffix(fileName, ".ogg") || strings.HasSuffix(fileName, ".wav")
+}
+
+func loadInstrumentSoundFiles(instrument string, folderPath string, spkr soundPlayer) (playableSound[beep.StreamSeeker], error) {
+	files, err := os.ReadDir(folderPath)
 	if err != nil {
-		return playableSound[beep.StreamSeeker]{}, err
+		log.Error("failed to read dir " + folderPath)
+		return playableSound[beep.StreamSeeker]{}, nil
 	}
-	resampled := resampleIntoBuffer(spkr, songStreamer, songFormat)
+
+	sounds := make([]playableSound[beep.StreamSeekCloser], 0)
+	streams := make([]beep.Streamer, 0)
+	for _, file := range files {
+		if !isSupportedAudioFile(file.Name()) {
+			continue
+		}
+
+		if isMatchingInstrumentSoundFile(instrument, file.Name()) {
+			filePath := filepath.Join(folderPath, file.Name())
+			stream, format, err := openAudioFileNonBuffered(filePath)
+			if err != nil {
+				return playableSound[beep.StreamSeeker]{}, err
+			}
+
+			if len(sounds) > 0 {
+				if format != sounds[0].format {
+					return playableSound[beep.StreamSeeker]{}, errors.New("format mismatch for " + instrument + " " + filePath)
+				}
+			}
+
+			log.Info("Found " + instrument + " sound. " + fmt.Sprintf("%+v", format) + " path=" + filePath)
+			sounds = append(sounds, playableSound[beep.StreamSeekCloser]{stream, format})
+			streams = append(streams, stream)
+		}
+	}
+	if len(sounds) == 0 {
+		return playableSound[beep.StreamSeeker]{}, nil
+	}
+	var mixedStreamer beep.Streamer
+	if len(sounds) == 1 {
+		mixedStreamer = sounds[0].soundStream
+	} else {
+		mixedStreamer = beep.Mix(streams...)
+	}
+
+	resampled := resampleIntoBuffer(spkr, mixedStreamer, sounds[0].format)
+	for _, sound := range sounds {
+		sound.soundStream.Close()
+	}
+
 	return resampled, nil
 }
 
 func loadSongSounds(chartFolderPath string, spkr soundPlayer) (songSounds, error) {
 	log.Info("loadSongSounds")
 
-	song, err := loadResampledAndBufferedAudioFile(spkr, filepath.Join(chartFolderPath, "song.ogg"))
+	song, err := loadInstrumentSoundFiles(instrumentMisc, chartFolderPath, spkr)
 	if err != nil {
 		return songSounds{}, err
 	}
-	guitar, err := loadResampledAndBufferedAudioFile(spkr, filepath.Join(chartFolderPath, "guitar.ogg"))
+	guitar, err := loadInstrumentSoundFiles(instrumentGuitar, chartFolderPath, spkr)
 	if err != nil {
 		return songSounds{}, err
 	}
-	bass, _ := loadResampledAndBufferedAudioFile(spkr, filepath.Join(chartFolderPath, "rhythm.ogg"))
+	bass, err := loadInstrumentSoundFiles(instrumentBass, chartFolderPath, spkr)
+	if err != nil {
+		return songSounds{}, err
+	}
+	drum, _ := loadInstrumentSoundFiles(instrumentDrums, chartFolderPath, spkr)
+	if err != nil {
+		return songSounds{}, err
+	}
 
-	guitarVolume := &effects.Volume{
-		Streamer: guitar.soundStream,
+	guitarVol := playableSound[*effects.Volume]{addVolumeControl(guitar.soundStream), guitar.format}
+	bassVol := playableSound[*effects.Volume]{addVolumeControl(bass.soundStream), bass.format}
+	drumVol := playableSound[*effects.Volume]{addVolumeControl(drum.soundStream), drum.format}
+
+	ss := songSounds{guitarVol, song, bassVol, drumVol}
+
+	return ss, nil
+}
+
+func addVolumeControl(stream beep.Streamer) *effects.Volume {
+	if stream == nil {
+		return nil
+	}
+	vol := &effects.Volume{
+		Streamer: stream,
 		Base:     2,
 		Volume:   0,
 		Silent:   false,
 	}
-	guitarVol := playableSound[*effects.Volume]{guitarVolume, guitar.format}
-
-	ss := songSounds{guitarVol, song, bass}
-
-	return ss, nil
+	return vol
 }
 
 func convertChartCmd(chartFolderPath string) tea.Cmd {

@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/faiface/beep"
 )
 
@@ -75,17 +76,22 @@ func saveSongScore(db grDbAccessor, ci chartInfo, ps playStats, songRootPath str
 	return db.setSongScore(s, ci.track, ps.score, ps.notesHit, ps.totalNotes)
 }
 
+func statsScreenSoundFileName(passed bool) string {
+	if passed {
+		return "passed.wav"
+	} else {
+		return "failed.wav"
+	}
+}
+
 func loadStatsScreenSoundCmd(passed bool) tea.Cmd {
 	return func() tea.Msg {
 		var ss beep.StreamSeeker
 		var fmt beep.Format
 		var err error
-		if passed {
-
-			ss, fmt, err = openAudioFileNonBuffered("passed.wav")
-		} else {
-			ss, fmt, err = openAudioFileNonBuffered("failed.wav")
-		}
+		fileName := statsScreenSoundFileName(passed)
+		ss, fmt, err = openAudioFileNonBuffered(fileName)
+		log.Info("loadStatsScreenSoundCmd " + fileName)
 		return statsScreenSoundLoadedMsg{sound{ss, fmt, ""}, err}
 	}
 }
