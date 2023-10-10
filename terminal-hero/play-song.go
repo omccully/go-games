@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/log"
+	"github.com/faiface/beep"
 	"github.com/faiface/beep/effects"
 	"github.com/faiface/beep/speaker"
 )
@@ -24,11 +25,16 @@ type playSongModel struct {
 	nextNoteIndex int // the index of the next note that should not be displayed yet
 	viewModel     viewModel
 
-	songSounds   songSounds
-	soundEffects soundEffects
-	startedMusic bool
-	speaker      soundPlayer
-	simpleMode   bool
+	songSounds     songSounds
+	soundEffects   soundEffects
+	startedMusic   bool
+	speaker        soundPlayer
+	simpleMode     bool
+	paused         bool
+	lastPausedTime time.Time
+	totalPauseTime time.Duration
+
+	songSoundCtrl playableSound[*beep.Ctrl]
 }
 
 const (
@@ -62,6 +68,27 @@ type currentNoteState struct {
 
 type tickMsg time.Time
 
+// mixes sounds and verifies sample rates are all the same
+func mixSounds(sounds ...playableSound[beep.Streamer]) playableSound[beep.Streamer] {
+	if len(sounds) == 0 {
+		return playableSound[beep.Streamer]{}
+	}
+
+	streams := make([]beep.Streamer, 0)
+	for _, sound := range sounds {
+		if sound.format.SampleRate != sounds[0].format.SampleRate {
+			log.Error("format mismatch in mixSounds")
+		} else if sound.soundStream != nil {
+			streams = append(streams, sound.soundStream)
+		}
+	}
+	return playableSound[beep.Streamer]{beep.Mix(streams...), sounds[0].format}
+}
+
+func convToStandardSound[T beep.Streamer](s playableSound[T]) playableSound[beep.Streamer] {
+	return playableSound[beep.Streamer]{s.soundStream, s.format}
+}
+
 func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
 	model := createModelFromChart(lm.chart.chart, lm.selectedTrack, stngs)
 	model.chartInfo.fullFolderPath = lm.chartFolderPath
@@ -69,6 +96,12 @@ func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
 
 	model.songSounds = lm.songSounds.songSounds
 	model.soundEffects = lm.soundEffects.soundEffects
+
+	// the sounds should all be resampled by this point
+	mixed := mixSounds(convToStandardSound(model.songSounds.song), convToStandardSound(model.songSounds.guitar),
+		convToStandardSound(model.songSounds.bass), convToStandardSound(model.songSounds.drums))
+
+	model.songSoundCtrl = playableSound[*beep.Ctrl]{&beep.Ctrl{Streamer: mixed.soundStream}, mixed.format}
 
 	model.startTime = time.Now()
 	model.speaker = lm.speaker
@@ -358,12 +391,46 @@ func (m playSongModel) destroy() {
 	}
 }
 
+func (m playSongModel) isPauseMsg(msg tea.Msg) bool {
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return false
+	}
+	button := keyMsg.String()
+	return button == "esc" || button == "enter"
+}
+
 func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.paused {
+		switch msg.(type) {
+		case tickMsg:
+			return m, timerCmd(m.settings.lineTime)
+		}
+
+		if m.isPauseMsg(msg) {
+			m.totalPauseTime += time.Since(m.lastPausedTime)
+			m.paused = false
+			speaker.Lock()
+			m.songSoundCtrl.soundStream.Paused = false
+			speaker.Unlock()
+		}
+
+		return m, nil
+	} else {
+		if m.isPauseMsg(msg) {
+			m.lastPausedTime = time.Now()
+			m.paused = true
+			speaker.Lock()
+			m.songSoundCtrl.soundStream.Paused = true
+			speaker.Unlock()
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tickMsg:
 		m.currentTimeMs += int(m.settings.lineTime / time.Millisecond)
 		currentDateTime := time.Time(tickMsg(msg))
-		elapsedTimeSinceStart := currentDateTime.Sub(m.startTime)
+		elapsedTimeSinceStart := currentDateTime.Sub(m.startTime) - m.totalPauseTime
 		sleepTime := time.Duration(m.currentTimeMs)*time.Millisecond - elapsedTimeSinceStart
 
 		m = m.ProcessNoNotePlayed(m.currentStrumTimeMs())
@@ -373,22 +440,9 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.startedMusic {
 				log.Info("Starting song music")
 
-				m.speaker.play(m.songSounds.song.soundStream, m.songSounds.song.format)
-
-				if m.songSounds.guitar.soundStream != nil {
-					m.speaker.play(m.songSounds.guitar.soundStream, m.songSounds.guitar.format)
-				}
-
-				if m.songSounds.bass.soundStream != nil {
-					m.speaker.play(m.songSounds.bass.soundStream, m.songSounds.bass.format)
-				}
-
-				if m.songSounds.drums.soundStream != nil {
-					m.speaker.play(m.songSounds.drums.soundStream, m.songSounds.drums.format)
-				}
+				m.speaker.play(m.songSoundCtrl.soundStream, m.songSoundCtrl.format)
 				m.startedMusic = true
 			}
-
 		}
 
 		if m.playStats.failed {
@@ -447,7 +501,7 @@ func (m playSongModel) currentStrumTimeMs() int {
 	lineTimeMs := int(m.settings.lineTime / time.Millisecond)
 	strumLineIndex := m.getStrumLineIndex()
 	currentDateTime := time.Now()
-	elapsedTimeSinceStart := currentDateTime.Sub(m.startTime)
+	elapsedTimeSinceStart := currentDateTime.Sub(m.startTime) - m.totalPauseTime
 	strumTimeMs := int(elapsedTimeSinceStart/time.Millisecond) - (lineTimeMs * strumLineIndex)
 	return strumTimeMs
 }

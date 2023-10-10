@@ -61,37 +61,44 @@ func (m playSongModel) CreateFretboardView(r *strings.Builder, noteStyles [5]*li
 
 	for i, line := range m.viewModel.NoteLine {
 		r.WriteString(" | ")
-		for noteType, isNote := range line.NoteColors {
-			if i == strumLineIndex {
-				r.WriteRune('-')
-			} else {
-				r.WriteRune(' ')
-			}
-
-			noteStyle := noteStyles[noteType]
-			if isNote {
-				writeStyledString(r, noteStyle, "("+(strconv.Itoa(noteType+1))+")")
-			} else {
+		if i == 0 && m.paused {
+			charsPerNote := 5 // ex: -(1)-
+			pausedStyle := lipgloss.NewStyle().Width(charsPerNote*len(line.NoteColors)).
+				Foreground(lipgloss.Color("#e68226")).Underline(true).Padding(0, 0, 0, 2)
+			r.WriteString(pausedStyle.Render("PAUSED (ESC/ENTER)"))
+		} else {
+			for noteType, isNote := range line.NoteColors {
 				if i == strumLineIndex {
-					if m.viewModel.noteStates[noteType].overHit {
-						writeStyledString(r, overhitStyle, "-X-")
-					} else {
-						writeStyledString(r, noteStyle, "---")
-					}
+					r.WriteRune('-')
 				} else {
-					isHeldNote := line.HeldNotes[noteType]
-					if isHeldNote && i < strumLineIndex {
-						writeStyledString(r, noteStyle, " | ")
+					r.WriteRune(' ')
+				}
+
+				noteStyle := noteStyles[noteType]
+				if isNote {
+					writeStyledString(r, noteStyle, "("+(strconv.Itoa(noteType+1))+")")
+				} else {
+					if i == strumLineIndex {
+						if m.viewModel.noteStates[noteType].overHit {
+							writeStyledString(r, overhitStyle, "-X-")
+						} else {
+							writeStyledString(r, noteStyle, "---")
+						}
 					} else {
-						r.WriteString("   ")
+						isHeldNote := line.HeldNotes[noteType]
+						if isHeldNote && i < strumLineIndex {
+							writeStyledString(r, noteStyle, " | ")
+						} else {
+							r.WriteString("   ")
+						}
 					}
 				}
-			}
 
-			if i == strumLineIndex {
-				r.WriteRune('-')
-			} else {
-				r.WriteRune(' ')
+				if i == strumLineIndex {
+					r.WriteRune('-')
+				} else {
+					r.WriteRune(' ')
+				}
 			}
 		}
 
