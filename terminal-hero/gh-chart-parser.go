@@ -80,6 +80,11 @@ func (c *Chart) HandleChartElement(section string, element ChartElement) error {
 		}
 
 		split := strings.Split(element.RightValue, " ")
+
+		if split[0] != "N" {
+			return nil
+		}
+
 		noteType, err := strconv.ParseInt(split[1], 10, 32)
 		if err != nil {
 			return err
