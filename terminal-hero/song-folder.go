@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -69,6 +70,11 @@ func loadSongFolder(p string) *songFolder {
 
 	populateSongFolder(&folder)
 	trimSongFolders(&folder)
+
+	// sort the items in the root folder to sort game names
+	sort.Slice(folder.subFolders, func(i, j int) bool {
+		return compareGameNames(folder.subFolders[i].name, folder.subFolders[j].name)
+	})
 
 	return &folder
 }

@@ -147,3 +147,71 @@ func fileExists(path string) bool {
 	}
 	return !d.IsDir()
 }
+
+type rhythmGame struct {
+	name  string
+	regex *regexp.Regexp
+}
+
+// var gameNameMatchers = []*regexp.Regexp{
+// 	takeRegex(regexp.Compile(""))
+// }
+
+func themedGameGh(bandName string) *regexp.Regexp {
+	return takeRegex(regexp.Compile(`^Guitar Hero( -)? ` + bandName + `$`))
+}
+func themedGameRb(bandName string) *regexp.Regexp {
+	return takeRegex(regexp.Compile(`^Rock Band( -|:)? ` + bandName + `$`))
+}
+
+var games = []rhythmGame{
+	{"Guitar Hero", takeRegex(regexp.Compile(`^Guitar Hero( 1| I)?$`))},
+	{"Guitar Hero II", takeRegex(regexp.Compile(`^Guitar Hero( 2| II)$`))},
+	{"Guitar Hero Encore: Rocks the 80s", takeRegex(regexp.Compile(`^Guitar Hero( Encore: Rocks the 80s| 80s)$`))},
+	{"Guitar Hero III: Legends of Rock", takeRegex(regexp.Compile(`^Guitar Hero( 3| III)$`))},
+	{"Guitar Hero: Aerosmith", themedGameGh("Aerosmith")},
+	{"Guitar Hero World Tour", takeRegex(regexp.Compile(`^Guitar Hero( World Tour| 4| IV)$`))},
+	{"Guitar Hero: Metallica", themedGameGh("Metallica")},
+	{"Guitar Hero: Smash Hits", themedGameGh("Smash Hits")},
+	{"Guitar Hero 5", takeRegex(regexp.Compile(`^Guitar Hero( 5| V)$`))},
+	{"Guitar Hero: Van Halen", themedGameGh("Van Halen")},
+	{"Band Hero", nil},
+	{"Guitar Hero: Warriors of Rock", themedGameGh("Warriors of Rock")},
+	{"Rock Band", takeRegex(regexp.Compile(`^Rock Band( 1| I)?$`))},
+	{"Rock Band 2", takeRegex(regexp.Compile(`^Rock Band( 2| II)$`))},
+	{"Rock Band 3", takeRegex(regexp.Compile(`^Rock Band( 3| III)$`))},
+	{"The Beatles: Rock Band", themedGameRb("(The )?Beatles")},
+	{"Lego Rock Band", nil},
+	{"Green Day: Rock Band", themedGameRb("Green Day")},
+	{"Rock Band 4", takeRegex(regexp.Compile(`^Rock Band( 4| IV)$`))},
+}
+
+func getGameByName(name string) (*rhythmGame, int) {
+	for i, game := range games {
+		if game.name == name {
+			return &game, i
+		}
+		if game.regex != nil && game.regex.MatchString(name) {
+			return &game, i
+		}
+	}
+	return nil, -1
+}
+
+func compareGameNames(gn1 string, gn2 string) bool {
+	g1, g1Index := getGameByName(gn1)
+	g2, g2Index := getGameByName(gn2)
+	if g1 == nil || g2 == nil {
+		return gn1 < gn2
+	}
+
+	return g1Index < g2Index
+}
+
+func sortGameNames(gameNames []string) {
+	sort.Slice(gameNames, func(i, j int) bool {
+		gn1 := gameNames[i]
+		gn2 := gameNames[j]
+		return compareGameNames(gn1, gn2)
+	})
+}

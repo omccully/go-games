@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"reflect"
 	"testing"
 )
@@ -203,5 +204,54 @@ func customInstrumentSoundFileTest(t *testing.T, instrument string, fileName str
 		if isMatchingInstrumentSoundFile(k, fileName) {
 			t.Errorf("Expected %v, got %v", false, true)
 		}
+	}
+}
+
+func TestGetGameByName(t *testing.T) {
+	for _, game := range games {
+		customTestGetGameByName(t, game.name, game.name)
+	}
+
+	customTestGetGameByName(t, "Guitar Hero I", "Guitar Hero")
+	customTestGetGameByName(t, "Guitar Hero - Aerosmith", "Guitar Hero: Aerosmith")
+	customTestGetGameByName(t, "Guitar Hero 2", "Guitar Hero II")
+	customTestGetGameByName(t, "Rock Band: Beatles", "The Beatles: Rock Band")
+	customTestGetGameByName(t, "Rock Band: The Beatles", "The Beatles: Rock Band")
+
+}
+
+func customTestGetGameByName(t *testing.T, name string, expected string) {
+	actual, _ := getGameByName(name)
+
+	if actual == nil {
+		t.Fatalf("Expected %s from %s, got nil", expected, name)
+	}
+
+	if actual.name != expected {
+		t.Errorf("Expected %s from %s, got %s", expected, name, actual.name)
+	}
+}
+
+func TestSortGameNames(t *testing.T) {
+
+	expected := []string{"Custom", "Guitar Hero", "Guitar Hero II", "Guitar Hero III", "Guitar Hero - Aerosmith", "Guitar Hero World Tour",
+		"Guitar Hero - Metallica", "Guitar Hero 5", "Guitar Hero - Van Halen", "Guitar Hero Warriors of Rock", "Rock Band", "Rock Band 2", "Rock Band 3"}
+
+	gameNames := make([]string, len(expected))
+
+	for i, name := range expected {
+		gameNames[i] = name
+	}
+
+	rand.Shuffle(len(expected), func(i, j int) { gameNames[i], gameNames[j] = gameNames[j], gameNames[i] })
+
+	sortGameNames(gameNames)
+
+	if len(gameNames) != len(expected) {
+		t.Errorf("Expected len %v, got %v", len(gameNames), len(expected))
+	}
+
+	if !reflect.DeepEqual(expected, gameNames) {
+		t.Errorf("Expected %v, got %v", expected, gameNames)
 	}
 }
