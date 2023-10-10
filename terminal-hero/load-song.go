@@ -121,12 +121,12 @@ func loadInstrumentSoundFiles(instrument string, folderPath string, spkr soundPl
 			}
 
 			if len(sounds) > 0 {
-				if format != sounds[0].format {
+				if format.SampleRate != sounds[0].format.SampleRate {
 					return playableSound[beep.StreamSeeker]{}, errors.New("format mismatch for " + instrument + " " + filePath)
 				}
 			}
 
-			log.Info("Found " + instrument + " sound. " + fmt.Sprintf("%+v", format) + " path=" + filePath)
+			log.Info("Found " + instrument + " sound. " + fmt.Sprintf("len=%d -- %+v", stream.Len(), format) + " path=" + filePath)
 			sounds = append(sounds, playableSound[beep.StreamSeekCloser]{stream, format})
 			streams = append(streams, stream)
 		}

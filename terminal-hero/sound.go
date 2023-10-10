@@ -11,7 +11,6 @@ import (
 
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/effects"
-	"github.com/faiface/beep/vorbis"
 	"github.com/faiface/beep/wav"
 )
 
@@ -78,7 +77,7 @@ func loadSoundEffects(spkr soundPlayer) (soundEffects, error) {
 
 func getAudioDecoderForFile(filePath string) decoderFunc {
 	if strings.HasSuffix(filePath, ".ogg") {
-		return vorbis.Decode
+		return DecodeVorbis
 	} else if strings.HasSuffix(filePath, ".wav") {
 		return wavDecoder
 	} else {
