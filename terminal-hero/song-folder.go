@@ -130,6 +130,29 @@ func (fldr *songFolder) getSubfolder(name string) *songFolder {
 	return nil
 }
 
+func (fldr *songFolder) addSubFolder(name string) *songFolder {
+	f := &songFolder{name, filepath.Join(fldr.path, name), fldr, []*songFolder{},
+		false, 0, songScore{}}
+	fldr.subFolders = append(fldr.subFolders, f)
+	return f
+}
+
+func (fldr *songFolder) search(text string) []*songFolder {
+	results := make([]*songFolder, 0)
+	searchRecursive(fldr, text, &results)
+	return results
+}
+
+func searchRecursive(fldr *songFolder, text string, results *[]*songFolder) {
+	if strings.Contains(strings.ToLower(fldr.name), strings.ToLower(text)) {
+		*results = append(*results, fldr)
+	}
+
+	for _, f := range fldr.subFolders {
+		searchRecursive(f, text, results)
+	}
+}
+
 func incrementSongCount(fldr *songFolder) {
 	fldr.songCount++
 	if fldr.parent != nil {
