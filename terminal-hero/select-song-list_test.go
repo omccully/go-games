@@ -117,8 +117,6 @@ func sendCmd(tm *teatest.TestModel, cmd tea.Cmd) {
 	}
 }
 
-// func
-
 func samplesEqual(expected [][2]float64, actual [][2]float64) error {
 	if len(expected) != len(actual) {
 		return errors.New(fmt.Sprintf("Expected %d samples, got %d", len(expected), len(actual)))
@@ -161,10 +159,8 @@ func TestSongList(t *testing.T) {
 
 	tm := teatest.NewTestModel(t, m)
 	sendCmd(tm, cmd)
-	t.Log("Waiting for sasmples")
 
 	waitForErr := doWaitFor(func() (bool, error) {
-		println("Checked\n")
 		speaker.mu.Lock()
 		defer speaker.mu.Unlock()
 		if audioOpener.err != nil {
@@ -190,7 +186,6 @@ func TestSongList(t *testing.T) {
 	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("down")})
 
 	waitForErr = doWaitFor(func() (bool, error) {
-		println("Checked\n")
 		speaker.mu.Lock()
 		defer speaker.mu.Unlock()
 		if audioOpener.err != nil {
@@ -209,7 +204,10 @@ func TestSongList(t *testing.T) {
 
 	tm.Quit()
 	tm.WaitFinished(t, teatest.WithFinalTimeout(time.Second))
-
+	final := tm.FinalModel(t).(selectSongListModel)
+	if i, _ := final.selectedItem(); i != f2 {
+		t.Fatal("Expected second item to be selected")
+	}
 }
 
 func doWaitFor(condition func() (bool, error)) error {

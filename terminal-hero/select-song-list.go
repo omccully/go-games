@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"path/filepath"
 	"time"
 
@@ -19,12 +18,11 @@ import (
 // - navigating through song folders and updating the displayed song list
 // - handling user selection of song
 type selectSongListModel struct {
-	menuList         list.Model
-	speaker          soundPlayer
-	selectedSongPath string
-	previewSound     *sound
-	previewDelay     time.Duration
-	audioFileOpener  audioFileOpener
+	menuList        list.Model
+	speaker         soundPlayer
+	previewSound    *sound
+	previewDelay    time.Duration
+	audioFileOpener audioFileOpener
 }
 
 func initialSelectSongListModel(spkr soundPlayer, afo audioFileOpener) selectSongListModel {
@@ -55,7 +53,7 @@ func (m selectSongListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		var mlCmd tea.Cmd
 		m.menuList, mlCmd = m.menuList.Update(msg)
-		fmt.Printf("key %s %d", msg.String(), m.menuList.Index())
+
 		// trigger the preview sound when user navigates to different song with arrow keys
 		m, spCmd := m.checkInitiateSongPreview()
 
