@@ -45,23 +45,72 @@ func getInstrumentNames(tracks []string) []string {
 var preferredInstrumentOrder = []string{"Guitar", "Bass", "Drums", "Keys", "Vocals", "Backing", "Rhythm"}
 
 func sortTrackNames(trackNames []trackName) []trackName {
-	organized := organizeTrackNames(trackNames)
+	organized2 := organizeTrackNames2(trackNames)
 	sorted := make([]trackName, len(trackNames))
 	i := 0
-
-	for _, instrument := range preferredInstrumentOrder {
-		for _, trackName := range organized[instrument] {
+	for _, ti := range organized2 {
+		for _, trackName := range ti.trackNames {
 			sorted[i] = trackName
 			i++
 		}
+	}
+	return sorted
+	// organized := organizeTrackNames(trackNames)
+	// sorted := make([]trackName, len(trackNames))
+	// i := 0
+
+	// for _, instrument := range preferredInstrumentOrder {
+	// 	for _, trackName := range organized[instrument] {
+	// 		sorted[i] = trackName
+	// 		i++
+	// 	}
+	// 	delete(organized, instrument)
+	// }
+
+	// for _, trackNames := range organized {
+	// 	for _, trackName := range trackNames {
+	// 		sorted[i] = trackName
+	// 		i++
+	// 	}
+	// }
+
+	// return sorted
+}
+
+type trackInstrument struct {
+	instrument string
+	trackNames []trackName
+}
+
+func organizeTrackNames2(trackNames []trackName) []trackInstrument {
+	organized := organizeTrackNames(trackNames)
+	sorted := make([]trackInstrument, len(organized))
+	i := 0
+	for _, instrument := range preferredInstrumentOrder {
+		trackNames, ok := organized[instrument]
+		if !ok {
+			continue
+		}
+		ti := trackInstrument{instrument, make([]trackName, len(trackNames))}
+
+		for di, trackName := range trackNames {
+			ti.trackNames[di] = trackName
+		}
+		sorted[i] = ti
+		i++
 		delete(organized, instrument)
 	}
 
-	for _, trackNames := range organized {
-		for _, trackName := range trackNames {
-			sorted[i] = trackName
-			i++
+	// add other instruments that aren't part of the preferred order
+	for instrument, trackNames := range organized {
+		ti := trackInstrument{instrument, make([]trackName, len(organized[instrument]))}
+
+		for di, trackName := range trackNames {
+			ti.trackNames[di] = trackName
 		}
+
+		sorted[i] = ti
+		i++
 	}
 
 	return sorted

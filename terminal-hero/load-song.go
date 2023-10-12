@@ -19,16 +19,17 @@ import (
 )
 
 type loadSongModel struct {
-	chartFolderPath string
-	settings        settings
-	spinner         spinner.Model
-	soundEffects    *loadedSoundEffectsMsg
-	songSounds      *loadedSongSoundsMsg
-	chart           *loadedChartMsg
-	menuList        *list.Model
-	selectedTrack   string
-	backout         bool
-	speaker         soundPlayer
+	chartFolderPath    string
+	settings           settings
+	spinner            spinner.Model
+	soundEffects       *loadedSoundEffectsMsg
+	songSounds         *loadedSongSoundsMsg
+	chart              *loadedChartMsg
+	menuList           *list.Model
+	selectedTrack      string
+	selectedInstrument *instrumentVm
+	backout            bool
+	speaker            soundPlayer
 }
 
 type loadedSoundEffectsMsg struct {
@@ -54,13 +55,30 @@ type trackName struct {
 	fullTrackName   string
 }
 
+type instrumentVm struct {
+	name   string
+	tracks []trackName
+}
+type difficultyVm struct {
+	name  string
+	track trackName
+}
+
+func (i instrumentVm) Title() string {
+	return instrumentDisplayName(i.name)
+}
+func (i instrumentVm) Description() string {
+	return ""
+}
+func (i instrumentVm) FilterValue() string { return i.name }
+
 func (i trackName) Title() string {
-	return instrumentDisplayName(i.instrument) + " -- " + getDifficultyDisplayName(i.difficulty)
+	return getDifficultyDisplayName(i.difficulty)
 }
 func (i trackName) Description() string {
 	return ""
 }
-func (i trackName) FilterValue() string { return i.fullTrackName }
+func (i trackName) FilterValue() string { return getDifficultyDisplayName(i.difficulty) }
 
 func (m loadSongModel) Init() tea.Cmd {
 	return tea.Batch(loadSongSoundsCmd(m.chartFolderPath, m.speaker), convertChartCmd(m.chartFolderPath), loadSongEffectsCmd(m.speaker), m.spinner.Tick)
@@ -278,23 +296,7 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.chart = &msg
 
 		if m.chart.err == nil {
-			listItems := make([]list.Item, len(m.chart.chart.Tracks))
-
-			i := 0
-			tracks := make([]string, len(m.chart.chart.Tracks))
-			for k := range m.chart.chart.Tracks {
-				tracks[i] = k
-
-				i++
-			}
-
-			sortedTracks := sortTracks(tracks)
-			for i, track := range sortedTracks {
-				listItems[i] = track
-			}
-
-			selectTrackMenuList := list.New(listItems, createListDd(false), 0, 0)
-			selectTrackMenuList.Title = "Available Tracks"
+			selectTrackMenuList := list.New([]list.Item{}, createListDd(false), 0, 0)
 			selectTrackMenuList.SetSize(25, m.settings.fretBoardHeight-15)
 			selectTrackMenuList.SetShowStatusBar(false)
 			selectTrackMenuList.SetFilteringEnabled(false)
@@ -303,21 +305,42 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			styleList(&selectTrackMenuList)
 			setupKeymapForList(&selectTrackMenuList)
 			m.menuList = &selectTrackMenuList
+
+			m = m.initializeMenuForSelectInstrument()
 		}
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
 			if m.menuList != nil {
-				tn, ok := m.menuList.SelectedItem().(trackName)
-				if ok {
-					m.selectedTrack = tn.fullTrackName
+				if m.selectedInstrument == nil {
+					in, ok := m.menuList.SelectedItem().(instrumentVm)
+					if ok {
+						m.selectedInstrument = &in
+						m = m.initializeMenuForSelectDifficulty()
+					} else {
+						to := reflect.TypeOf(m.menuList.SelectedItem()).String()
+						panic("selected track is not a instrumentVm " + to)
+					}
 				} else {
-					to := reflect.TypeOf(m.menuList.SelectedItem()).String()
-					panic("selected track is not a trackName " + to)
+					tn, ok := m.menuList.SelectedItem().(trackName)
+					if ok {
+						m.selectedTrack = tn.fullTrackName
+					} else {
+						to := reflect.TypeOf(m.menuList.SelectedItem()).String()
+						panic("selected track is not a trackName " + to)
+					}
 				}
 			}
 		case "backspace":
-			m.backout = true
+			if m.selectedTrack != "" {
+				m.selectedTrack = ""
+				m = m.initializeMenuForSelectDifficulty()
+			} else if m.selectedInstrument != nil {
+				m.selectedInstrument = nil
+				m = m.initializeMenuForSelectInstrument()
+			} else {
+				m.backout = true
+			}
 		default:
 			menuList, _ := m.menuList.Update(msg)
 			m.menuList = &menuList
@@ -325,6 +348,38 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	}
 	return m, scmd
+}
+
+func (m loadSongModel) initializeMenuForSelectInstrument() loadSongModel {
+	i := 0
+	tracks := make([]trackName, len(m.chart.chart.Tracks))
+	for k := range m.chart.chart.Tracks {
+		tracks[i] = parseTrackName(k)
+		i++
+	}
+
+	organized := organizeTrackNames2(tracks)
+	listItems := make([]list.Item, len(organized))
+
+	for i, ti := range organized {
+		instrumentVm := instrumentVm{ti.instrument, ti.trackNames}
+		listItems[i] = instrumentVm
+	}
+
+	m.menuList.Title = "Select Instrument"
+	m.menuList.SetItems(listItems)
+	return m
+}
+
+func (m loadSongModel) initializeMenuForSelectDifficulty() loadSongModel {
+	listItems := make([]list.Item, len(m.selectedInstrument.tracks))
+	for i, track := range m.selectedInstrument.tracks {
+		listItems[i] = track
+	}
+
+	m.menuList.Title = "Select Difficulty"
+	m.menuList.SetItems(listItems)
+	return m
 }
 
 func (m loadSongModel) finishedLoading() bool {
