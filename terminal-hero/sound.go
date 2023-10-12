@@ -89,9 +89,9 @@ type audioFileOpener interface {
 	openAudioFile(filePath string) (beep.StreamSeekCloser, beep.Format, error)
 }
 
-type audioFileOpen int
+type defaultAudioFileOpener int
 
-func (afo audioFileOpen) openAudioFile(filePath string) (beep.StreamSeekCloser, beep.Format, error) {
+func (afo defaultAudioFileOpener) openAudioFile(filePath string) (beep.StreamSeekCloser, beep.Format, error) {
 	return openAudioFileNonBuffered(filePath)
 }
 

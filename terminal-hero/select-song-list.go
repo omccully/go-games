@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// selectSongListModel is the model is responsible for:
+// selectSongListModel is the model responsible for:
 // - displaying a provided list of songs
 // - handling user scrolling through single song list (not the song folders)
 // - playing preview sound for selected song
@@ -23,6 +23,20 @@ type selectSongListModel struct {
 	previewSound    *sound
 	previewDelay    time.Duration
 	audioFileOpener audioFileOpener
+}
+
+type previewDelayTickMsg struct {
+	previewFilePath string
+}
+
+type previewSongLoadedMsg struct {
+	previewFilePath string
+	previewSound    sound
+}
+
+type previewSongLoadFailedMsg struct {
+	previewFilePath string
+	err             error
 }
 
 func initialSelectSongListModel(spkr soundPlayer, afo audioFileOpener) selectSongListModel {
@@ -80,14 +94,33 @@ func (m selectSongListModel) View() string {
 	return m.menuList.View()
 }
 
-func (m selectSongListModel) setSongs(songs []*songFolder, highlightedSubFolder *songFolder) (selectSongListModel, tea.Cmd) {
+func (m selectSongListModel) destroy() selectSongListModel {
+	return m.clearSongPreview()
+}
+
+func (m selectSongListModel) setSongs(songs []*songFolder, highlightedSubFolder *songFolder, title string) (selectSongListModel, tea.Cmd) {
 	listItems := []list.Item{}
 	for _, f := range songs {
 		listItems = append(listItems, f)
 	}
 	m.menuList.SetItems(listItems)
 
+	m.menuList.Title = title
+
 	return m.highlightSubfolder(highlightedSubFolder)
+}
+
+func (m selectSongListModel) setSize(width, height int) selectSongListModel {
+	m.menuList.SetSize(width, height)
+	return m
+}
+
+func (m selectSongListModel) highlightedChildFolder() *songFolder {
+	item := m.menuList.SelectedItem()
+	if item == nil {
+		return nil
+	}
+	return item.(*songFolder)
 }
 
 func (m selectSongListModel) highlightSubfolder(highlightedSubFolder *songFolder) (selectSongListModel, tea.Cmd) {
@@ -110,41 +143,6 @@ func (m selectSongListModel) selectedItem() (i *songFolder, ok bool) {
 	i, ok = li.(*songFolder)
 	return i, ok
 }
-
-// func (m selectSongListModel) setSelectedSongFolder(sf *songFolder, highlightedSubFolder *songFolder) (selectSongListModel, tea.Cmd) {
-// 	listItems := []list.Item{}
-// 	for _, f := range sf.subFolders {
-// 		listItems = append(listItems, f)
-// 	}
-// 	m.menuList.SetItems(listItems)
-
-// 	relativePath, err := sf.relativePath()
-// 	suffix := fmt.Sprintf(" (%d songs)", sf.songCount)
-// 	if err != nil || relativePath == "" {
-// 		m.menuList.Title = sf.name + suffix
-// 	} else {
-// 		m.menuList.Title = strings.Replace(relativePath, "\\", "/", -1) + suffix
-// 	}
-
-// 	m.selectedSongFolder = sf
-// 	initializeScores(sf, m.songScores)
-
-// 	indexOfHighlighted := 0
-// 	if highlightedSubFolder != nil {
-// 		for i, f := range sf.subFolders {
-// 			if f == highlightedSubFolder {
-// 				indexOfHighlighted = i
-// 			}
-// 		}
-// 	}
-
-// 	m.menuList.Select(indexOfHighlighted)
-
-// 	m, pCmd := m.checkInitiateSongPreview()
-// 	return m, pCmd
-// }
-
-// type
 
 func (m selectSongListModel) checkInitiateSongPreview() (selectSongListModel, tea.Cmd) {
 	m = m.clearSongPreview()
@@ -181,14 +179,6 @@ func (sf *songFolder) previewFilePath() string {
 	return filepath.Join(sf.path, "preview.ogg")
 }
 
-func (m selectSongListModel) highlightedChildFolder() *songFolder {
-	item := m.menuList.SelectedItem()
-	if item == nil {
-		return nil
-	}
-	return item.(*songFolder)
-}
-
 func loadPreviewSongCmd(afo audioFileOpener, previewFilePath string) tea.Cmd {
 	return func() tea.Msg {
 		// load unbuffered stream
@@ -200,27 +190,3 @@ func loadPreviewSongCmd(afo audioFileOpener, previewFilePath string) tea.Cmd {
 		}
 	}
 }
-
-// func (m selectSongListModel) highlightSongAbsolutePath(absolutePath string) (selectSongListModel, tea.Cmd, error) {
-// 	relative, err := relativePath(absolutePath, m.rootPath)
-// 	if err != nil {
-// 		return m, nil, err
-// 	}
-// 	// navigate to the song in the tree
-// 	m, cmd := m.highlightSongRelativePath(relative)
-// 	return m, cmd, nil
-// }
-
-// func (m selectSongListModel) highlightSongRelativePath(relativePath string) (selectSongListModel, tea.Cmd) {
-// 	folders := splitFolderPath(relativePath)
-// 	if m.rootSongFolder == nil {
-// 		m.defaultHighlightRelativePath = relativePath
-// 		return m, nil
-// 	}
-// 	songFolder := m.rootSongFolder.queryFolder(folders)
-// 	if songFolder != nil {
-// 		return m.setSelectedSongFolder(songFolder.parent, songFolder)
-// 	}
-
-// 	return m, nil
-// }

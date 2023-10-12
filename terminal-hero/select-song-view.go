@@ -47,9 +47,9 @@ func (m selectSongModel) View() string {
 		menuListView = mlvBuilder.String()
 	} else {
 		if m.searching {
-			menuListView = m.searchTi.View() + "\n\n" + m.menuList.View()
+			menuListView = m.searchTi.View() + "\n\n" + m.songList.View()
 		} else {
-			menuListView = m.menuList.View()
+			menuListView = m.songList.View()
 		}
 
 	}

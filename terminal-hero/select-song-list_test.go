@@ -155,7 +155,7 @@ func TestSongList(t *testing.T) {
 	}
 	m, cmd := m.setSongs([]*songFolder{
 		f1, f2,
-	}, nil)
+	}, nil, "title")
 
 	tm := teatest.NewTestModel(t, m)
 	sendCmd(tm, cmd)

@@ -5,75 +5,54 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/log"
 )
 
+// selectSongModel is the model responsible for:
+// - loading song list
+// - navigating through song folders and updating the displayed song list
+// - handling user selection of song
+// - search functionality
 type selectSongModel struct {
 	rootSongFolder               *songFolder
 	selectedSongFolder           *songFolder
 	rootPath                     string
-	menuList                     list.Model
+	songList                     selectSongListModel
 	selectedSongPath             string
 	dbAccessor                   grDbAccessor
 	songScores                   *map[string]songScore
-	previewSound                 *sound
 	defaultHighlightRelativePath string
-	speaker                      *thSpeaker
 	settings                     settings
 	searching                    bool
 	searchStr                    string
 	searchTi                     *textinput.Model
 }
 
-type previewDelayTickMsg struct {
-	previewFilePath string
-}
-
-type previewSongLoadedMsg struct {
-	previewFilePath string
-	previewSound    sound
-}
-
-type previewSongLoadFailedMsg struct {
-	previewFilePath string
-	err             error
-}
-
 func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings, spkr *thSpeaker) selectSongModel {
 	model := selectSongModel{}
+	model.settings = settings
 
-	selectSongMenuList := list.New([]list.Item{}, createListDd(true), 0, 0)
-	selectSongMenuList.SetSize(70, settings.fretBoardHeight-9)
-	selectSongMenuList.SetShowStatusBar(false)
-	selectSongMenuList.SetFilteringEnabled(false)
-	selectSongMenuList.SetShowHelp(false)
-	selectSongMenuList.DisableQuitKeybindings()
-	styleList(&selectSongMenuList)
-
-	setupKeymapForList(&selectSongMenuList)
-	model.menuList = selectSongMenuList
-	model.updateSongListSize()
+	var songOpener defaultAudioFileOpener
+	model.songList = initialSelectSongListModel(spkr, songOpener)
+	model = model.updateSongListSize()
 
 	model.dbAccessor = dbAccessor
 	model.rootPath = rootPath
-	model.speaker = spkr
-
-	model.settings = settings
 
 	return model
 }
 
-func (m selectSongModel) updateSongListSize() {
+func (m selectSongModel) updateSongListSize() selectSongModel {
+	height := m.settings.fretBoardHeight - 9
 	if m.searching {
-		m.menuList.SetSize(70, m.settings.fretBoardHeight-19)
-	} else {
-		m.menuList.SetSize(70, m.settings.fretBoardHeight-9)
+		height = m.settings.fretBoardHeight - 19
 	}
-
+	log.Info("Updating song list size to ", "height", height)
+	m.songList = m.songList.setSize(70, height)
+	return m
 }
 
 func initializeScores(flder *songFolder, ss *map[string]songScore) {
@@ -152,10 +131,10 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			i, ok := m.menuList.SelectedItem().(*songFolder)
+			i, ok := m.songList.selectedItem()
 			if ok {
 				if i.isLeaf {
-					m = m.clearSongPreview()
+					m.songList.destroy()
 					resultModel := selectSongModel{}
 					resultModel.selectedSongPath = i.path
 					return resultModel, nil
@@ -184,34 +163,17 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		default:
 			if m.searching {
+				// send keys to search text box when searching
 				ti, tiCmd := m.searchTi.Update(msg)
 				m.searchTi = &ti
 				return m, tiCmd
 			} else {
+				// send keys to menu list when not searching
+				slm, mlCmd := m.songList.Update(msg)
+				m.songList = slm.(selectSongListModel)
 
-				var mlCmd tea.Cmd
-				m.menuList, mlCmd = m.menuList.Update(msg)
-
-				// trigger the preview sound when user navigates to different song with arrow keys
-				m, spCmd := m.checkInitiateSongPreview()
-
-				return m, tea.Batch(mlCmd, spCmd)
+				return m, mlCmd
 			}
-		}
-	case previewSongLoadedMsg:
-		hcf := m.highlightedChildFolder()
-		if hcf != nil && hcf.previewFilePath() == msg.previewFilePath {
-			m.speaker.play(msg.previewSound.soundStream, msg.previewSound.format)
-			m.previewSound = &msg.previewSound
-		} else {
-			// no longer needed. user is viewing different song
-			msg.previewSound.close()
-		}
-	case previewDelayTickMsg:
-		hcf := m.highlightedChildFolder()
-		if hcf != nil && hcf.previewFilePath() == msg.previewFilePath {
-			var afo audioFileOpen
-			return m, loadPreviewSongCmd(afo, msg.previewFilePath)
 		}
 	case songFoldersLoadedMsg:
 		if msg.rootSongFolder == nil {
@@ -236,91 +198,32 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			initializeScores(m.rootSongFolder, m.songScores)
 		}
 	}
-
-	// log.Info(msg, "vals", fmt.Sprintf("%T", msg))
-
 	return m, nil
 }
 
-func (m selectSongModel) setSelectedSongFolder(sf *songFolder, highlightedSubFolder *songFolder) (selectSongModel, tea.Cmd) {
-	listItems := []list.Item{}
-	for _, f := range sf.subFolders {
-		listItems = append(listItems, f)
-	}
-	m.menuList.SetItems(listItems)
-
+func songFolderTitle(sf *songFolder) string {
+	var title string
 	relativePath, err := sf.relativePath()
 	suffix := fmt.Sprintf(" (%d songs)", sf.songCount)
 	if err != nil || relativePath == "" {
-		m.menuList.Title = sf.name + suffix
+		title = sf.name + suffix
 	} else {
-		m.menuList.Title = strings.Replace(relativePath, "\\", "/", -1) + suffix
+		title = strings.Replace(relativePath, "\\", "/", -1) + suffix
 	}
+	return title
+}
+
+func (m selectSongModel) setSelectedSongFolder(sf *songFolder, highlightedSubFolder *songFolder) (selectSongModel, tea.Cmd) {
+	title := songFolderTitle(sf)
+
+	var ssCmd tea.Cmd
+	m.songList, ssCmd = m.songList.setSongs(sf.subFolders, highlightedSubFolder, title)
 
 	m.selectedSongFolder = sf
 	initializeScores(sf, m.songScores)
 
-	indexOfHighlighted := 0
-	if highlightedSubFolder != nil {
-		for i, f := range sf.subFolders {
-			if f == highlightedSubFolder {
-				indexOfHighlighted = i
-			}
-		}
-	}
-
-	m.menuList.Select(indexOfHighlighted)
-
-	m, pCmd := m.checkInitiateSongPreview()
-	return m, pCmd
+	return m, ssCmd
 }
-
-func (m selectSongModel) checkInitiateSongPreview() (selectSongModel, tea.Cmd) {
-	m = m.clearSongPreview()
-	sf := m.highlightedChildFolder()
-	if sf != nil {
-		if sf.isLeaf {
-			if m.previewSound == nil || m.previewSound.filePath != sf.previewFilePath() {
-				return m, tea.Tick(time.Second/4, func(t time.Time) tea.Msg {
-					return previewDelayTickMsg{sf.previewFilePath()}
-				})
-			}
-		}
-	}
-	return m, nil
-}
-
-func (m selectSongModel) clearSongPreview() selectSongModel {
-	if m.previewSound != nil {
-		m.speaker.clear()
-		m.previewSound.close()
-		m.previewSound = nil
-	}
-	return m
-}
-
-// func (sf *songFolder) previewFilePath() string {
-// 	return filepath.Join(sf.path, "preview.ogg")
-// }
-
-func (m selectSongModel) highlightedChildFolder() *songFolder {
-	item := m.menuList.SelectedItem()
-	if item == nil {
-		return nil
-	}
-	return item.(*songFolder)
-}
-
-// func loadPreviewSongCmd(previewFilePath string) tea.Cmd {
-// 	return func() tea.Msg {
-// 		s, format, err := openAudioFileNonBuffered(previewFilePath)
-// 		if err != nil {
-// 			return previewSongLoadFailedMsg{previewFilePath, err}
-// 		} else {
-// 			return previewSongLoadedMsg{previewFilePath, sound{s, format, previewFilePath}}
-// 		}
-// 	}
-// }
 
 func (m selectSongModel) highlightSongAbsolutePath(absolutePath string) (selectSongModel, tea.Cmd, error) {
 	relative, err := relativePath(absolutePath, m.rootPath)
