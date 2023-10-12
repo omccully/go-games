@@ -57,3 +57,17 @@ func createListDd(hasDesc bool) list.DefaultDelegate {
 
 	return dd
 }
+
+func createListDdNoStyling() list.DefaultDelegate {
+	// for search results. selected item shouldn't be highlighted
+	dd := list.NewDefaultDelegate()
+
+	dd.Styles.SelectedTitle = dd.Styles.SelectedTitle.UnsetForeground().
+		BorderStyle(dd.Styles.NormalTitle.GetBorderStyle())
+	dd.Styles.SelectedDesc = dd.Styles.SelectedDesc.UnsetForeground().
+		BorderStyle(dd.Styles.NormalDesc.GetBorderStyle())
+	dd.Styles.NormalTitle = dd.Styles.SelectedTitle
+	dd.Styles.NormalDesc = dd.Styles.SelectedDesc
+
+	return dd
+}

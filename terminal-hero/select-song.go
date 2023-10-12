@@ -26,10 +26,20 @@ type selectSongModel struct {
 	songScores                   *map[string]songScore
 	defaultHighlightRelativePath string
 	settings                     settings
-	searching                    bool
-	searchStr                    string
-	searchTi                     *textinput.Model
+
+	// searching state. ssNotSearching -> ssSearching -> ssNavigatingSearchResults
+	searchState searchState
+	searchStr   string
+	searchTi    *textinput.Model
 }
+
+type searchState int
+
+const (
+	ssNotSearching searchState = iota
+	ssSearching
+	ssNavigatingSearchResults
+)
 
 func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings, spkr *thSpeaker) selectSongModel {
 	model := selectSongModel{}
@@ -47,7 +57,7 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 
 func (m selectSongModel) updateSongListSize() selectSongModel {
 	height := m.settings.fretBoardHeight - 9
-	if m.searching {
+	if m.searchState != ssNotSearching {
 		height = m.settings.fretBoardHeight - 19
 	}
 	log.Info("Updating song list size to ", "height", height)
@@ -101,29 +111,69 @@ func (m selectSongModel) Init() tea.Cmd {
 	return tea.Batch(initializeSongFoldersCmd(m.rootPath), initializeTrackScoresCmd(m.dbAccessor), textinput.Blink)
 }
 
+func (m selectSongModel) stopSearching() (selectSongModel, tea.Cmd) {
+	// most of the stop searching logic is implemented in setSelectedSongFolder
+	// to simplify other operations
+	return m.setSelectedSongFolder(m.selectedSongFolder, nil)
+}
+
+func (m selectSongModel) startSearching() (selectSongModel, tea.Cmd) {
+	m.searchState = ssSearching
+	ti := textinput.New()
+
+	ti.Placeholder = "Search..."
+	ti.CharLimit = 100
+	ti.Width = 30
+	m.searchTi = &ti
+	m.updateSongListSize()
+	m.searchTi.Focus()
+	m.rootSongFolder.context.searching = true
+	m.songList.menuList.SetDelegate(createListDdNoStyling())
+	return m, textinput.Blink
+}
+
+func (m selectSongModel) reEditSearch() (selectSongModel, tea.Cmd) {
+	m.searchState = ssSearching
+	m.songList.menuList.SetDelegate(createListDdNoStyling())
+	m.searchTi.Focus()
+	return m, textinput.Blink
+}
+
+func (m selectSongModel) navigateSearchResults() selectSongModel {
+	m.searchState = ssNavigatingSearchResults
+	m.songList.menuList.Select(0)
+	m.songList.menuList.SetDelegate(createListDd(true))
+	return m
+}
+
 func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if m.searchTi != nil {
+	if m.searchState == ssSearching {
+		// send keys to search text box when searching
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch msg.String() {
 			case "esc":
-				if m.searching {
-					m.searching = false
-					m.updateSongListSize()
-					m.searchTi.Reset()
-					m.searchTi = nil
-					return m, nil
+				if m.searchState != ssNotSearching {
+					return m.stopSearching()
 				}
-			case "enter":
-				m.searching = false
-				m.updateSongListSize()
-				m.searchTi.Reset()
-				m.searchTi = nil
-				return m, nil
+			case "enter", "down":
+				if m.searchState == ssSearching {
+					return m.navigateSearchResults(), nil
+				}
+
 			}
 		}
 		ti, tiCmd := m.searchTi.Update(msg)
 		m.searchTi = &ti
+		newSearchStr := m.searchTi.Value()
+
+		if newSearchStr != m.searchStr {
+
+			results := m.selectedSongFolder.search(newSearchStr)
+			m.songList, _ = m.songList.setSongs(results, nil, "Search results")
+			m.searchStr = newSearchStr
+		}
+
 		return m, tiCmd
 	}
 
@@ -144,17 +194,14 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "ctrl+f":
-			if !m.searching {
-				m.searching = true
-				ti := textinput.New()
-
-				ti.Placeholder = "Search..."
-				ti.CharLimit = 100
-				ti.Width = 30
-				m.searchTi = &ti
-				m.updateSongListSize()
-				m.searchTi.Focus()
-				return m, textinput.Blink
+			if m.searchState == ssNotSearching {
+				return m.startSearching()
+			} else if m.searchState == ssNavigatingSearchResults {
+				return m.reEditSearch()
+			}
+		case "esc":
+			if m.searchState != ssNotSearching {
+				return m.stopSearching()
 			}
 		case "backspace":
 			if m.selectedSongFolder.parent != nil {
@@ -162,18 +209,11 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.setSelectedSongFolder(m.selectedSongFolder.parent, m.selectedSongFolder)
 			}
 		default:
-			if m.searching {
-				// send keys to search text box when searching
-				ti, tiCmd := m.searchTi.Update(msg)
-				m.searchTi = &ti
-				return m, tiCmd
-			} else {
-				// send keys to menu list when not searching
-				slm, mlCmd := m.songList.Update(msg)
-				m.songList = slm.(selectSongListModel)
+			// send keys to menu list when not searching
+			slm, mlCmd := m.songList.Update(msg)
+			m.songList = slm.(selectSongListModel)
 
-				return m, mlCmd
-			}
+			return m, mlCmd
 		}
 	case songFoldersLoadedMsg:
 		if msg.rootSongFolder == nil {
@@ -221,6 +261,15 @@ func (m selectSongModel) setSelectedSongFolder(sf *songFolder, highlightedSubFol
 
 	m.selectedSongFolder = sf
 	initializeScores(sf, m.songScores)
+
+	if m.searchState != ssNotSearching {
+		m.searchState = ssNotSearching
+		m.searchStr = ""
+		m.searchTi = nil
+		m.songList.menuList.SetDelegate(createListDd(true))
+		m.rootSongFolder.context.searching = false
+		m.updateSongListSize()
+	}
 
 	return m, ssCmd
 }

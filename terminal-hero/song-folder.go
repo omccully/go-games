@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/muesli/reflow/truncate"
 )
 
 type songFolder struct {
@@ -17,13 +19,32 @@ type songFolder struct {
 	isLeaf     bool
 	songCount  int
 	songScore  songScore
+	context    *songFolderContext
+}
+
+type songFolderContext struct {
+	searching bool
 }
 
 func (fldr *songFolder) relativePath() (string, error) {
 	return relativePath(fldr.path, fldr.root().path)
 }
 
-func (i *songFolder) Title() string { return i.name }
+func (i *songFolder) Title() string {
+	ft := i.fullTitle()
+	return truncate.StringWithTail(ft, 60, "...")
+}
+
+func (i *songFolder) fullTitle() string {
+	if i.context != nil && i.context.searching {
+		rp, err := i.relativePath()
+		if err == nil {
+			return rp
+		}
+	}
+	return i.name
+}
+
 func (i *songFolder) Description() string {
 	if i.isLeaf {
 		b := strings.Builder{}
@@ -67,6 +88,7 @@ func loadSongFolder(p string) *songFolder {
 	folder.path = p
 	folder.subFolders = []*songFolder{}
 	folder.songCount = 0
+	folder.context = &songFolderContext{false}
 
 	populateSongFolder(&folder)
 	trimSongFolders(&folder)
@@ -88,7 +110,7 @@ func populateSongFolder(fldr *songFolder) {
 	for _, f := range files {
 		if f.IsDir() {
 			child := &songFolder{f.Name(), filepath.Join(fldr.path, f.Name()),
-				fldr, []*songFolder{}, false, 0, songScore{}}
+				fldr, []*songFolder{}, false, 0, songScore{}, fldr.context}
 			fldr.subFolders = append(fldr.subFolders, child)
 			populateSongFolder(child)
 		} else {
@@ -132,7 +154,7 @@ func (fldr *songFolder) getSubfolder(name string) *songFolder {
 
 func (fldr *songFolder) addSubFolder(name string) *songFolder {
 	f := &songFolder{name, filepath.Join(fldr.path, name), fldr, []*songFolder{},
-		false, 0, songScore{}}
+		false, 0, songScore{}, fldr.context}
 	fldr.subFolders = append(fldr.subFolders, f)
 	return f
 }
@@ -144,11 +166,10 @@ func (fldr *songFolder) search(text string) []*songFolder {
 }
 
 func searchRecursive(fldr *songFolder, text string, results *[]*songFolder) {
-	if strings.Contains(strings.ToLower(fldr.name), strings.ToLower(text)) {
-		*results = append(*results, fldr)
-	}
-
 	for _, f := range fldr.subFolders {
+		if strings.Contains(strings.ToLower(f.name), strings.ToLower(text)) {
+			*results = append(*results, f)
+		}
 		searchRecursive(f, text, results)
 	}
 }

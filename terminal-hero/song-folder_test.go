@@ -4,6 +4,13 @@ import "testing"
 
 func customSearchTest(t *testing.T, root *songFolder, searchText string, expectedSingle *songFolder) {
 	actual := root.search(searchText)
+	if expectedSingle == nil {
+		if len(actual) != 0 {
+			t.Errorf("Expected no results, got %d", len(actual))
+		}
+		return
+	}
+
 	if len(actual) != 1 {
 		t.Fatalf("Expected 1 result, got %d for %s", len(actual), searchText)
 	}
@@ -15,7 +22,7 @@ func customSearchTest(t *testing.T, root *songFolder, searchText string, expecte
 	}
 }
 
-func TestAsdf(t *testing.T) {
+func TestSongFolderSearch(t *testing.T) {
 	root := &songFolder{
 		name:       "root",
 		subFolders: []*songFolder{},
@@ -31,4 +38,7 @@ func TestAsdf(t *testing.T) {
 	customSearchTest(t, root, "sub2", sub2)
 	customSearchTest(t, root, "Bob2", bob2)
 	customSearchTest(t, root, "ob1", bob1)
+
+	// search should not return root element
+	customSearchTest(t, root, "roo", nil)
 }
