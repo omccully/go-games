@@ -11,8 +11,10 @@ require (
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/aymanbagabas/go-udiff v0.1.0 // indirect
 	github.com/charmbracelet/harmonica v0.2.0 // indirect
 	github.com/charmbracelet/log v0.2.4 // indirect
+	github.com/charmbracelet/x/exp/teatest v0.0.0-20231010190216-1cb11efc897d // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/faiface/beep v1.1.0 // indirect

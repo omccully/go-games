@@ -85,6 +85,16 @@ func getAudioDecoderForFile(filePath string) decoderFunc {
 	}
 }
 
+type audioFileOpener interface {
+	openAudioFile(filePath string) (beep.StreamSeekCloser, beep.Format, error)
+}
+
+type audioFileOpen int
+
+func (afo audioFileOpen) openAudioFile(filePath string) (beep.StreamSeekCloser, beep.Format, error) {
+	return openAudioFileNonBuffered(filePath)
+}
+
 func openAudioFileNonBuffered(filePath string) (beep.StreamSeekCloser, beep.Format, error) {
 	decoder := getAudioDecoderForFile(filePath)
 	if decoder == nil {
