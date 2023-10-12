@@ -9,26 +9,61 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 )
 
-func sortTracks(tracks []string) []trackName {
+func getTracks(tracks []string) []trackName {
 	trackNames := make([]trackName, len(tracks))
 	for i, track := range tracks {
 		trackNames[i] = parseTrackName(track)
 	}
+	return trackNames
+}
 
+func sortTracks(tracks []string) []trackName {
+	trackNames := getTracks(tracks)
 	return sortTrackNames(trackNames)
 }
+
+func getInstrumentNames(tracks []string) []string {
+	trackNames := getTracks(tracks)
+	organized := organizeTrackNames(trackNames)
+	instrumentNames := make([]string, 0)
+
+	for _, instrument := range preferredInstrumentOrder {
+		_, ok := organized[instrument]
+		if ok {
+			instrumentNames = append(instrumentNames, instrument)
+			delete(organized, instrument)
+		}
+	}
+
+	for instrument, _ := range organized {
+		instrumentNames = append(instrumentNames, instrument)
+	}
+
+	return instrumentNames
+}
+
+var preferredInstrumentOrder = []string{"Guitar", "Bass", "Drums", "Keys", "Vocals", "Backing", "Rhythm"}
 
 func sortTrackNames(trackNames []trackName) []trackName {
 	organized := organizeTrackNames(trackNames)
 	sorted := make([]trackName, len(trackNames))
 	i := 0
-	preferredInstrumentOrder := []string{"Guitar", "Bass", "Drums", "Keys", "Vocals", "Backing", "Rhythm"}
+
 	for _, instrument := range preferredInstrumentOrder {
 		for _, trackName := range organized[instrument] {
 			sorted[i] = trackName
 			i++
 		}
+		delete(organized, instrument)
 	}
+
+	for _, trackNames := range organized {
+		for _, trackName := range trackNames {
+			sorted[i] = trackName
+			i++
+		}
+	}
+
 	return sorted
 }
 
@@ -51,11 +86,11 @@ func sortTrackNamesByDifficulty(trackNames []trackName) []trackName {
 	for i, trackName := range trackNames {
 		sorted[i] = trackName
 	}
-
+	// fmt.Printf("presort %v\n", sorted)
 	sort.Slice(sorted, func(i, j int) bool {
 		return trackNames[i].difficultyValue < trackNames[j].difficultyValue
 	})
-
+	// fmt.Printf("%v\n", sorted)
 	return sorted
 }
 
@@ -76,7 +111,9 @@ func parseTrackName(track string) trackName {
 	if len(words) >= 2 {
 		instrumentWords := strings.Join(words[1:], "")
 		dv := getDifficultyValue(words[0])
-		return trackName{words[0], dv, translateInstrumentName(instrumentWords), track}
+		tn := trackName{words[0], dv, translateInstrumentName(instrumentWords), track}
+		// fmt.Printf("%v\n", tn)
+		return tn
 	}
 
 	return trackName{"", 1, "", track}

@@ -6,6 +6,28 @@ import (
 	"testing"
 )
 
+func TestGetInstrumentNames(t *testing.T) {
+	tracks := []string{
+		"ExpertSingle",
+		"HardSingle",
+		"MediumSingle",
+		"EasySingle",
+		"ExpertDoubleBass",
+		"HardDoubleBass",
+		"MediumDoubleBass",
+		"EasyDoubleBass",
+		"ExpertTrumpet",
+	}
+
+	expected := []string{"Guitar", "Bass", "Trumpet"}
+
+	actual := getInstrumentNames(tracks)
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Expected %v, got %v", expected, actual)
+	}
+}
+
 func TestSortTracks(t *testing.T) {
 	tracks := []string{
 		"ExpertSingle",
@@ -27,6 +49,32 @@ func TestSortTracks(t *testing.T) {
 		"MediumDoubleBass",
 		"HardDoubleBass",
 		"ExpertDoubleBass",
+	}
+
+	sorted := sortTracks(tracks)
+	actual := make([]string, len(sorted))
+	for i, track := range sorted {
+		actual[i] = track.fullTrackName
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Expected %v, got %v", expected, actual)
+	}
+}
+
+func TestSortTracks_DifferentInstrument(t *testing.T) {
+	tracks := []string{
+		"ExpertTrumpet",
+		"HardTrumpet",
+		"MediumTrumpet",
+		"EasyTrumpet",
+	}
+
+	expected := []string{
+		"EasyTrumpet",
+		"MediumTrumpet",
+		"HardTrumpet",
+		"ExpertTrumpet",
 	}
 
 	sorted := sortTracks(tracks)
