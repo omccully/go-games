@@ -297,7 +297,7 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.chart.err == nil {
 			selectTrackMenuList := list.New([]list.Item{}, createListDd(false), 0, 0)
-			selectTrackMenuList.SetSize(25, m.settings.fretBoardHeight-15)
+			selectTrackMenuList.SetSize(25, m.settings.fretBoardHeight-16)
 			selectTrackMenuList.SetShowStatusBar(false)
 			selectTrackMenuList.SetFilteringEnabled(false)
 			selectTrackMenuList.SetShowHelp(false)
@@ -377,7 +377,7 @@ func (m loadSongModel) initializeMenuForSelectDifficulty() loadSongModel {
 		listItems[i] = track
 	}
 
-	m.menuList.Title = "Select Difficulty"
+	m.menuList.Title = "Select " + m.selectedInstrument.Title() + " Difficulty"
 	m.menuList.SetItems(listItems)
 	return m
 }

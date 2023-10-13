@@ -88,6 +88,36 @@ func TestSortTracks_DifferentInstrument(t *testing.T) {
 	}
 }
 
+func TestSortDifficulties(t *testing.T) {
+	tracks := []string{
+		"MediumDrums",
+		"ExpertDrums",
+		"EasyDrums",
+		"HardDrums",
+	}
+
+	ti := getTracks(tracks)
+	organized := organizeTrackNames(ti)
+
+	actualTracks := organized["Drums"]
+
+	actual := make([]string, len(actualTracks))
+	for i, track := range actualTracks {
+		actual[i] = track.fullTrackName
+	}
+
+	expected := []string{
+		"EasyDrums",
+		"MediumDrums",
+		"HardDrums",
+		"ExpertDrums",
+	}
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Expected %v, got %v", expected, actual)
+	}
+}
+
 func customTestParseTrackName(t *testing.T, track string, expected trackName) {
 	parsed := parseTrackName(track)
 

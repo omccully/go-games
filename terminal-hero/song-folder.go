@@ -32,7 +32,7 @@ func (fldr *songFolder) relativePath() (string, error) {
 
 func (i *songFolder) Title() string {
 	ft := i.fullTitle()
-	return truncate.StringWithTail(ft, 60, "...")
+	return truncate.StringWithTail(ft, 55, "...")
 }
 
 func (i *songFolder) fullTitle() string {

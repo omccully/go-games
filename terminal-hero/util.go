@@ -135,11 +135,11 @@ func sortTrackNamesByDifficulty(trackNames []trackName) []trackName {
 	for i, trackName := range trackNames {
 		sorted[i] = trackName
 	}
-	// fmt.Printf("presort %v\n", sorted)
+	// log.Infof("presort %v\n", sorted)
 	sort.Slice(sorted, func(i, j int) bool {
-		return trackNames[i].difficultyValue < trackNames[j].difficultyValue
+		return sorted[i].difficultyValue < sorted[j].difficultyValue
 	})
-	// fmt.Printf("%v\n", sorted)
+	// log.Infof("%v\n", sorted)
 	return sorted
 }
 

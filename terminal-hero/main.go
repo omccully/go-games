@@ -242,7 +242,7 @@ func openLogFile() (*os.File, error) {
 	logFilePath := filepath.Join(logFolderPath, "terminal-hero.log")
 	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		fmt.Printf("error opening file: %v\n", err)
+		log.Infof("error opening file: %v\n", err)
 		return nil, err
 	}
 	return logFile, nil
