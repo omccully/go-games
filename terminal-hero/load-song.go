@@ -26,7 +26,7 @@ type loadSongModel struct {
 	songSounds         *loadedSongSoundsMsg
 	chart              *loadedChartMsg
 	menuList           *list.Model
-	selectedTrack      string
+	selectedTrack      *trackName
 	selectedInstrument *instrumentVm
 	backout            bool
 	speaker            soundPlayer
@@ -84,7 +84,7 @@ func (m loadSongModel) Init() tea.Cmd {
 	return tea.Batch(loadSongSoundsCmd(m.chartFolderPath, m.speaker), convertChartCmd(m.chartFolderPath), loadSongEffectsCmd(m.speaker), m.spinner.Tick)
 }
 
-func initialLoadModel(chartFolderPath string, track string, stngs settings, spkr soundPlayer) loadSongModel {
+func initialLoadModel(chartFolderPath string, stngs settings, spkr soundPlayer) loadSongModel {
 	s := spinner.New()
 	s.Spinner = spinner.Points
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
@@ -93,7 +93,6 @@ func initialLoadModel(chartFolderPath string, track string, stngs settings, spkr
 		chartFolderPath: chartFolderPath,
 		settings:        stngs,
 		spinner:         s,
-		selectedTrack:   track,
 		speaker:         spkr,
 	}
 }
@@ -324,7 +323,7 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					tn, ok := m.menuList.SelectedItem().(trackName)
 					if ok {
-						m.selectedTrack = tn.fullTrackName
+						m.selectedTrack = &tn
 					} else {
 						to := reflect.TypeOf(m.menuList.SelectedItem()).String()
 						panic("selected track is not a trackName " + to)
@@ -332,8 +331,8 @@ func (m loadSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "backspace":
-			if m.selectedTrack != "" {
-				m.selectedTrack = ""
+			if m.selectedTrack != nil {
+				m.selectedTrack = nil
 				m = m.initializeMenuForSelectDifficulty()
 			} else if m.selectedInstrument != nil {
 				m.selectedInstrument = nil
@@ -389,5 +388,5 @@ func (m loadSongModel) finishedLoading() bool {
 }
 
 func (m loadSongModel) finishedSuccessfully() bool {
-	return m.finishedLoading() && m.selectedTrack != ""
+	return m.finishedLoading() && m.selectedTrack != nil
 }

@@ -33,7 +33,7 @@ type Note struct {
 	TimeStamp int
 
 	// 0, 1, 2, 3, 4 (for guitar: green, red, yellow, blue, orange)
-	NoteType int
+	RawNoteType int
 
 	ExtraData int64
 }
@@ -226,7 +226,7 @@ func getNotesWithRealTimestamps(chart *Chart, trackName string) []Note {
 		}
 
 		heldNoteTime := int64(timeElapsed(float64(note.ExtraData), currentBpm, float64(chart.SongMetadata.Resolution)))
-		result = append(result, Note{int(currentTime), note.NoteType, heldNoteTime})
+		result = append(result, Note{int(currentTime), note.RawNoteType, heldNoteTime})
 	}
 	return result
 }

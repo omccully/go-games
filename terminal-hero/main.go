@@ -126,7 +126,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		selectedSong := selectModel.(selectSongModel).selectedSongPath
 		if selectedSong != "" {
 			ssPath := selectModel.(selectSongModel).selectedSongPath
-			loadModel := initialLoadModel(ssPath, "", m.settings, m.speaker)
+			loadModel := initialLoadModel(ssPath, m.settings, m.speaker)
 			lmCmd := loadModel.Init()
 			m.state = loadSong
 			m.loadSongModel = loadModel

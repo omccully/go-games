@@ -25,6 +25,8 @@ var gpNoteStyles [5]*lipgloss.Style = [5]*lipgloss.Style{
 	&gNoteStyles[4],
 }
 
+var gpOpenNoteStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#90918e"))
+
 var gpSimpleNoteStyles [5]*lipgloss.Style = [5]*lipgloss.Style{
 	nil, nil, nil, nil, nil,
 }
@@ -56,7 +58,7 @@ func writeStyledString(r *strings.Builder, style *lipgloss.Style, str string) {
 	r.WriteString(strToWrite)
 }
 
-func (m playSongModel) CreateFretboardView(r *strings.Builder, noteStyles [5]*lipgloss.Style, overhitStyle *lipgloss.Style) {
+func (m playSongModel) CreateFretboardView(r *strings.Builder, noteStyles [5]*lipgloss.Style, overhitStyle *lipgloss.Style, openNoteStyle *lipgloss.Style) {
 	strumLineIndex := m.getStrumLineIndex()
 
 	for i, line := range m.viewModel.NoteLine {
@@ -78,9 +80,13 @@ func (m playSongModel) CreateFretboardView(r *strings.Builder, noteStyles [5]*li
 				if isNote {
 					writeStyledString(r, noteStyle, "("+(strconv.Itoa(noteType+1))+")")
 				} else {
-					if i == strumLineIndex {
+					if line.OpenNote {
+						writeStyledString(r, openNoteStyle, "---")
+					} else if i == strumLineIndex {
 						if m.viewModel.noteStates[noteType].overHit {
 							writeStyledString(r, overhitStyle, "-X-")
+						} else if m.viewModel.openNoteState.overHit {
+							r.WriteString("*~*")
 						} else {
 							writeStyledString(r, noteStyle, "---")
 						}
@@ -110,14 +116,14 @@ func (m playSongModel) CreateFretboardView(r *strings.Builder, noteStyles [5]*li
 
 func (m playSongModel) SimpleView() string {
 	r := strings.Builder{}
-	m.CreateFretboardView(&r, gpSimpleNoteStyles, nil)
+	m.CreateFretboardView(&r, gpSimpleNoteStyles, nil, nil)
 	r.WriteString("\nPress 0 to exit simple mode")
 	return r.String()
 }
 
 func (m playSongModel) ComplexView() string {
 	r := strings.Builder{}
-	m.CreateFretboardView(&r, gpNoteStyles, &gOverhitStyle)
+	m.CreateFretboardView(&r, gpNoteStyles, &gOverhitStyle, &gpOpenNoteStyle)
 
 	scoreAndMultiplier := strings.Builder{}
 

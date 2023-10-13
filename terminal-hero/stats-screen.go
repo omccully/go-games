@@ -73,7 +73,7 @@ func saveSongScore(db grDbAccessor, ci chartInfo, ps playStats, songRootPath str
 
 	s := song{fileHash, relative, ci.songName()}
 
-	return db.setSongScore(s, ci.track, ps.score, ps.notesHit, ps.totalNotes)
+	return db.setSongScore(s, ci.track.fullTrackName, ps.score, ps.notesHit, ps.totalNotes)
 }
 
 func statsScreenSoundFileName(passed bool) string {
@@ -148,14 +148,14 @@ func (m statsScreenModel) View() string {
 
 	sb.WriteRune('\n')
 
-	tn := parseTrackName(m.chartInfo.track)
+	tn := m.chartInfo.track
 	sl := statsList{}
 	sl.add("Song", m.chartInfo.songName())
 
 	if tn.instrument != "" {
 		sl.add("Instrument", instrumentDisplayName(tn.instrument))
 	} else {
-		sl.add("Track", m.chartInfo.track)
+		sl.add("Track", tn.fullTrackName)
 	}
 	if tn.difficulty != "" {
 		sl.add("Difficulty", getDifficultyDisplayName(tn.difficulty))

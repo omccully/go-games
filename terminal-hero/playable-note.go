@@ -1,7 +1,9 @@
 package main
 
 type playableNote struct {
-	played bool
+	played     bool
+	fretIndex  int // the real index of the note along the fretboard, ignoring the open note (kick pedal)
+	isOpenNote bool
 	Note
 }
 

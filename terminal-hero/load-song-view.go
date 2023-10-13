@@ -22,11 +22,11 @@ func (m loadSongModel) View() string {
 	sb := strings.Builder{}
 
 	if m.chart != nil && m.chart.err == nil {
-		if m.selectedTrack == "" {
+		if m.selectedTrack == nil {
 			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(pinkAccentColor)).Render(getAsciiArt("selecttrack.txt")) + "\n")
 			sb.WriteString(songListStyle.Width(60).Render(m.menuList.View()))
 		} else {
-			sb.WriteString(greenTextStyle.Render("✓ User selected track: " + m.selectedTrack))
+			sb.WriteString(greenTextStyle.Render("✓ User selected track: " + m.selectedTrack.fullTrackName))
 		}
 	}
 

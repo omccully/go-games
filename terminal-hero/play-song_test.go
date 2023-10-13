@@ -47,7 +47,7 @@ func countNotesOfColor(vm viewModel, color int) int {
 func TestViewBeforeNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	model.settings.lineTime = 100 * time.Millisecond
 
 	vm := model.CreateCurrentNoteChart()
@@ -68,7 +68,7 @@ func TestViewBeforeNotes(t *testing.T) {
 func TestViewFirstNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	model.settings.lineTime = 100 * time.Millisecond
 	model.currentTimeMs = 12100
 
@@ -104,7 +104,7 @@ func TestViewFirstNotes(t *testing.T) {
 
 func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("MediumSingle"), defaultSettings())
 	strumLineTime := 9600
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -128,7 +128,7 @@ func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 
 func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("MediumSingle"), defaultSettings())
 	strumLineTime := 10050
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -174,7 +174,7 @@ func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 
 func TestHitNote_ThenDidntPlayNextNote_ResetsStreakWhenNoteIsOutsideOfWindow(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("MediumSingle"), defaultSettings())
 	strumLineTime := 10050
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -200,7 +200,7 @@ func TestHitNote_ThenDidntPlayNextNote_ResetsStreakWhenNoteIsOutsideOfWindow(t *
 
 func TestDoubleStrumSameNote_ResetsNoteStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("MediumSingle"), defaultSettings())
 	strumLineTime := 10050
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -215,7 +215,7 @@ func TestDoubleStrumSameNote_ResetsNoteStreak(t *testing.T) {
 
 func TestStrumWrongNote_ThenCorrectNote_AllowsPlayingCorrectNote(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "MediumSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("MediumSingle"), defaultSettings())
 	strumLineTime := 10050
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -229,7 +229,7 @@ func TestStrumWrongNote_ThenCorrectNote_AllowsPlayingCorrectNote(t *testing.T) {
 
 func TestSkipNote(t *testing.T) {
 	chart := openTtfafChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 2430
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -261,7 +261,7 @@ func initializeModelToStrumLineTime(model playSongModel, strumLineTime int) play
 
 func TestPlayChordNoteAtBeginningOfSong(t *testing.T) {
 	chart := openPrayerOfTheRefugeeChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 3270
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -276,7 +276,7 @@ func TestPlayChordNoteAtBeginningOfSong(t *testing.T) {
 
 func TestPlayChordNote_OutOfChartOrder_DoesNotResetStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 27750
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -296,7 +296,7 @@ func TestPlayChordNote_OutOfChartOrder_DoesNotResetStreak(t *testing.T) {
 
 func TestPlayChordNoteWrongByDoubletappingFirstNote_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 27750
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -320,7 +320,7 @@ func TestPlayChordNoteWrongByDoubletappingFirstNote_ResetsStreak(t *testing.T) {
 
 func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 27750
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -344,7 +344,7 @@ func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
 
 func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreakAndMissesNote(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 27750
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -368,7 +368,7 @@ func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreakAndMissesNote(t
 
 func TestPlayWrongNoteEntirelyForChord_ResetsStreak(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 27750
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -386,7 +386,7 @@ func TestPlayWrongNoteEntirelyForChord_ResetsStreak(t *testing.T) {
 
 func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
 	chart := openTtfafChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 49230
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -395,7 +395,7 @@ func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
 
 	// skip YO chord
 	yoChord := getNextNoteOrChord(model.realTimeNotes, model.playStats.lastPlayedNoteIndex+1)
-	if yoChord[0].NoteType != 2 || yoChord[1].NoteType != 4 {
+	if yoChord[0].RawNoteType != 2 || yoChord[1].RawNoteType != 4 {
 		t.Error("Expected YO chord, got", yoChord)
 	}
 
@@ -412,7 +412,7 @@ func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
 
 func TestReplayChord(t *testing.T) {
 	chart := openPrayerOfTheRefugeeChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 52500
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
@@ -447,7 +447,7 @@ func TestReplayChord(t *testing.T) {
 
 func TestReplayNote_AtBeginning(t *testing.T) {
 	chart := openPrayerOfTheRefugeeChart(t)
-	model := createModelFromChart(chart, "ExpertSingle", defaultSettings())
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
 	strumLineTime := 500
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 

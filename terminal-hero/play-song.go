@@ -50,13 +50,22 @@ type NoteColors [5]bool
 type NoteLine struct {
 	NoteColors [5]bool
 	HeldNotes  [5]bool
+	OpenNote   bool
 	// debug info
 	DisplayTimeMs int
 }
 
 type viewModel struct {
-	NoteLine   []NoteLine
-	noteStates [5]currentNoteState
+	NoteLine      []NoteLine
+	noteStates    [5]currentNoteState
+	openNoteState currentNoteState
+}
+
+func (vm *viewModel) noteStatePtr(colorIndex int) *currentNoteState {
+	if colorIndex == openNoteColorIndex {
+		return &vm.openNoteState
+	}
+	return &vm.noteStates[colorIndex]
 }
 
 type currentNoteState struct {
@@ -90,9 +99,9 @@ func convToStandardSound[T beep.Streamer](s playableSound[T]) playableSound[beep
 }
 
 func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
-	model := createModelFromChart(lm.chart.chart, lm.selectedTrack, stngs)
+	model := createModelFromChart(lm.chart.chart, *lm.selectedTrack, stngs)
 	model.chartInfo.fullFolderPath = lm.chartFolderPath
-	model.chartInfo.track = lm.selectedTrack
+	model.chartInfo.track = *lm.selectedTrack
 
 	model.songSounds = lm.songSounds.songSounds
 	model.soundEffects = lm.soundEffects.soundEffects
@@ -112,11 +121,25 @@ func (m playSongModel) getStrumLineIndex() int {
 	return m.settings.fretBoardHeight - 5
 }
 
-func createModelFromChart(chart *Chart, trackName string, stngs settings) playSongModel {
-	realNotes := getNotesWithRealTimestamps(chart, trackName)
+func createModelFromChart(chart *Chart, trackName trackName, stngs settings) playSongModel {
+	realNotes := getNotesWithRealTimestamps(chart, trackName.fullTrackName)
 	playableNotes := make([]playableNote, len(realNotes))
 	for i, note := range realNotes {
-		playableNotes[i] = playableNote{false, note}
+		if trackName.instrument == instrumentDrums {
+			if note.RawNoteType == 0 {
+				// for drums, 0 is the open note
+				playableNotes[i] = playableNote{false, openNoteColorIndex, true, note}
+			} else {
+				playableNotes[i] = playableNote{false, note.RawNoteType - 1, false, note}
+			}
+		} else {
+			// for guitar, 7 is the open note
+			if note.RawNoteType == 7 {
+				playableNotes[i] = playableNote{false, openNoteColorIndex, true, note}
+			} else {
+				playableNotes[i] = playableNote{false, note.RawNoteType, false, note}
+			}
+		}
 	}
 
 	startTime := time.Time{}
@@ -154,24 +177,33 @@ func (m playSongModel) CreateCurrentNoteChart() viewModel {
 
 	// the nextNoteIndex should not be printed
 	latestNotPrintedNoteIndex := m.nextNoteIndex - 1
+
+	isDrums := m.chartInfo.track.instrument == instrumentDrums
+
 	for i := 0; i < m.settings.fretBoardHeight; i++ {
-		var noteColors NoteColors = NoteColors{false, false, false, false, false}
-		var heldNotes [5]bool = [5]bool{false, false, false, false, false}
+		var noteColors NoteColors = NoteColors{}
+		var heldNotes [5]bool = [5]bool{}
+		openNote := false
 		for j := latestNotPrintedNoteIndex; j >= 0; j-- {
 			note := m.realTimeNotes[j]
 
 			if note.TimeStamp >= displayTimeMs {
 				if !note.played {
-					noteColors[note.NoteType] = true
+					if note.isOpenNote {
+						openNote = true
+					} else {
+						noteColors[note.fretIndex] = true
+					}
 				}
 
 				latestNotPrintedNoteIndex = j - 1
 			} else {
-				chord := getPreviousNoteOrChord(m.realTimeNotes, j)
-
-				for _, chordNote := range chord {
-					if chordNote.TimeStamp+int(chordNote.ExtraData-100) >= displayTimeMs {
-						heldNotes[chordNote.NoteType] = true
+				if !isDrums {
+					chord := getPreviousNoteOrChord(m.realTimeNotes, j)
+					for _, chordNote := range chord {
+						if chordNote.TimeStamp+int(chordNote.ExtraData-100) >= displayTimeMs {
+							heldNotes[note.fretIndex] = true
+						}
 					}
 				}
 
@@ -180,12 +212,12 @@ func (m playSongModel) CreateCurrentNoteChart() viewModel {
 			}
 		}
 
-		result[i] = NoteLine{noteColors, heldNotes, displayTimeMs}
+		result[i] = NoteLine{noteColors, heldNotes, openNote, displayTimeMs}
 
 		displayTimeMs -= lineTimeMs
 	}
 
-	return viewModel{result, m.viewModel.noteStates}
+	return viewModel{result, m.viewModel.noteStates, m.viewModel.openNoteState}
 }
 
 // updates view model info based on model.currentTimeMs
@@ -205,9 +237,14 @@ func (m playSongModel) UpdateViewModel() playSongModel {
 	return m
 }
 
+const (
+	processMissedNotesColorIndex = -1234
+	openNoteColorIndex           = -5678
+)
+
 // should be periodically called to process missed notes
 func (m playSongModel) ProcessNoNotePlayed(strumTimeMs int) playSongModel {
-	return m.PlayNote(-1, strumTimeMs)
+	return m.PlayNote(processMissedNotesColorIndex, strumTimeMs)
 }
 
 // should be called when a note is played (ex: keyboard button pressed)
@@ -227,17 +264,25 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			continue
 		}
 
-		if colorIndex == -1 {
+		if colorIndex == processMissedNotesColorIndex {
 			// no note was played, just finished checking for missed notes
 			break
+		}
+
+		var vmNoteState *currentNoteState
+		if colorIndex == openNoteColorIndex {
+			vmNoteState = &m.viewModel.openNoteState
+		} else {
+			vmNoteState = &m.viewModel.noteStates[colorIndex]
 		}
 
 		if note.TimeStamp > maxTime {
 			// no more notes to check
 			// overstrum or played wrong note
 
-			m.viewModel.noteStates[colorIndex].overHit = true
-			m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
+			vmNoteState.overHit = true
+			vmNoteState.lastPlayedMs = strumTimeMs
+
 			m.playStats.overhitNote()
 			m.muteCurrentInstrument()
 
@@ -257,12 +302,14 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 		if len(chord) == 1 {
 			// gotta be careful with chords when looping forward too
 
-			if note.NoteType == colorIndex {
+			if note.fretIndex == colorIndex {
 				// handle correct single note played
 				m.realTimeNotes[i].played = true
 				m.playStats.hitNote(1)
-				m.viewModel.noteStates[colorIndex].playedCorrectly = true
-				m.viewModel.noteStates[colorIndex].lastPlayedMs = strumTimeMs
+
+				vmNoteState.playedCorrectly = true
+				vmNoteState.lastPlayedMs = strumTimeMs
+
 				m.unmuteCurrentInstrument()
 				m.playStats.lastPlayedNoteIndex = i
 				break
@@ -275,9 +322,9 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 			overhitChord := false
 			foundMatchingChordNote := false
 			for _, chordNote := range chord {
-				if chordNote.NoteType == colorIndex {
+				if chordNote.fretIndex == colorIndex {
 					foundMatchingChordNote = true
-					if m.viewModel.noteStates[colorIndex].lastCorrectlyPlayedChordNoteTimeMs == chordNote.TimeStamp {
+					if vmNoteState.lastCorrectlyPlayedChordNoteTimeMs == chordNote.TimeStamp {
 						// already played!!
 						m.playStats.overhitNote()
 						m.muteCurrentInstrument()
@@ -285,14 +332,14 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 						overhitChord = true
 						for _, chordNote2 := range chord {
 							// decrement all times for chord notes because they were all played incorrectly
-							m.viewModel.noteStates[chordNote2.NoteType].lastCorrectlyPlayedChordNoteTimeMs--
+							m.viewModel.noteStatePtr(chordNote2.fretIndex).lastCorrectlyPlayedChordNoteTimeMs--
 						}
 					}
-					m.viewModel.noteStates[colorIndex].lastCorrectlyPlayedChordNoteTimeMs =
+					vmNoteState.lastCorrectlyPlayedChordNoteTimeMs =
 						chordNote.TimeStamp
 					continue
 				}
-				if m.viewModel.noteStates[chordNote.NoteType].lastCorrectlyPlayedChordNoteTimeMs != chordNote.TimeStamp {
+				if m.viewModel.noteStatePtr(chordNote.fretIndex).lastCorrectlyPlayedChordNoteTimeMs != chordNote.TimeStamp {
 					allChordNotesPlayed = false
 				}
 			}
@@ -306,7 +353,7 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				// played wrong note entirely
 				for _, chordNote2 := range chord {
 					// decrement all times for chord notes because they were all played incorrectly
-					m.viewModel.noteStates[chordNote2.NoteType].lastCorrectlyPlayedChordNoteTimeMs--
+					m.viewModel.noteStatePtr(chordNote2.fretIndex).lastCorrectlyPlayedChordNoteTimeMs--
 				}
 				m.playStats.overhitNote()
 				i += len(chord) - 1
@@ -318,8 +365,9 @@ func (m playSongModel) PlayNote(colorIndex int, strumTimeMs int) playSongModel {
 				m.playStats.hitNote(len(chord))
 
 				for ci, chordNote := range chord {
-					m.viewModel.noteStates[chordNote.NoteType].playedCorrectly = true
-					m.viewModel.noteStates[chordNote.NoteType].lastPlayedMs = strumTimeMs
+					ns := m.viewModel.noteStatePtr(chordNote.fretIndex)
+					ns.playedCorrectly = true
+					ns.lastPlayedMs = strumTimeMs
 
 					m.realTimeNotes[i+ci].played = true
 				}
@@ -345,6 +393,12 @@ func refreshNoteStates(vm viewModel, strumTimeMs int) viewModel {
 			vm.noteStates[i].playedCorrectly = false
 		}
 	}
+
+	rem := strumTimeMs - litDurationMs
+	if vm.openNoteState.lastPlayedMs < rem {
+		vm.openNoteState.overHit = false
+		vm.openNoteState.playedCorrectly = false
+	}
 	return vm
 }
 
@@ -357,8 +411,7 @@ func (m playSongModel) unmuteCurrentInstrument() {
 }
 
 func (m playSongModel) currentInstrumentVolumeControl() *effects.Volume {
-	tn := parseTrackName(m.chartInfo.track)
-	switch tn.instrument {
+	switch m.chartInfo.track.instrument {
 	case instrumentGuitar:
 		return m.songSounds.guitar.soundStream
 	case instrumentBass:
@@ -453,8 +506,12 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, timerCmd(sleepTime)
 	case tea.KeyMsg:
 		keyName := msg.String()
-		if len(keyName) == 1 && ('1' <= keyName[0] && keyName[0] <= '5') {
+		if keyName == "space" || keyName == " " {
+			log.Info("keyName " + keyName)
+			m = m.playNoteNow(openNoteColorIndex)
+		} else if len(keyName) == 1 && ('1' <= keyName[0] && keyName[0] <= '5') {
 			noteIndex := int(keyName[0] - '1')
+
 			m = m.playNoteNow(noteIndex)
 
 			if m.playStats.failed {
@@ -484,7 +541,7 @@ func (m playSongModel) playLastHitNote(strumTimeMs int) playSongModel {
 	}
 
 	for _, note := range lastPlayedNoteOrChord {
-		m = m.PlayNote(note.NoteType, strumTimeMs)
+		m = m.PlayNote(note.fretIndex, strumTimeMs)
 	}
 	return m
 }

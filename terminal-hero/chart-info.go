@@ -7,7 +7,7 @@ import (
 
 type chartInfo struct {
 	fullFolderPath string
-	track          string // difficulty and instrument
+	track          trackName // difficulty and instrument
 }
 
 func relativePath(fullPath string, parentPath string) (string, error) {
