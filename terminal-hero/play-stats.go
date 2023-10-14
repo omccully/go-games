@@ -14,7 +14,7 @@ type playStats struct {
 }
 
 const rockMeterIncrement = 0.02
-const rockMeterDecrement = 0.03
+const rockMeterDecrement = 0.025
 const pointsPerNote = 50
 
 func (ps *playStats) hitNote(noteSize int) {
@@ -126,14 +126,14 @@ func noteSizeRockMeterMultiplier(noteSize int) float64 {
 	case 1:
 		return 1.0
 	case 2:
-		return 1.5
+		return 1.2
 	case 3:
-		return 2.0
+		return 1.4
 	case 4:
-		return 2.5
+		return 1.7
 	case 5:
-		return 3.0
-	default:
 		return 2.0
+	default:
+		return 1.0
 	}
 }

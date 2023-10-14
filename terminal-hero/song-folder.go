@@ -38,6 +38,8 @@ func (i *songFolder) Title() string {
 func (i *songFolder) fullTitle() string {
 	if i.context != nil && i.context.searching {
 		rp, err := i.relativePath()
+		rp = strings.ReplaceAll(rp, "Guitar Hero", "GH")
+		rp = strings.ReplaceAll(rp, "Rock Band", "RB")
 		if err == nil {
 			return rp
 		}

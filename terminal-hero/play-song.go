@@ -18,6 +18,7 @@ type playSongModel struct {
 
 	startTime     time.Time // datetime that the song started
 	currentTimeMs int       // current time position within the chart for notes that are now appearing
+	lineTime      time.Duration
 
 	settings  settings
 	playStats playStats
@@ -98,13 +99,25 @@ func convToStandardSound[T beep.Streamer](s playableSound[T]) playableSound[beep
 	return playableSound[beep.Streamer]{s.soundStream, s.format}
 }
 
-func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
+func createPlayModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
 	model := createModelFromChart(lm.chart.chart, *lm.selectedTrack, stngs)
 	model.chartInfo.fullFolderPath = lm.chartFolderPath
 	model.chartInfo.track = *lm.selectedTrack
 
 	model.songSounds = lm.songSounds.songSounds
 	model.soundEffects = lm.soundEffects.soundEffects
+
+	model.currentInstrumentVolumeControl().Volume = 0.5
+
+	for _, instrum := range []string{instrumentGuitar, instrumentBass, instrumentDrums} {
+		if model.chartInfo.track.instrument != instrum {
+			stream := model.songSounds.getSongSoundForInstrument(instrum).soundStream
+			if stream != nil {
+				log.Infof("Decreasing volume for %s", instrum)
+				stream.Volume = -0.3
+			}
+		}
+	}
 
 	// the sounds should all be resampled by this point
 	mixed := mixSounds(convToStandardSound(model.songSounds.song), convToStandardSound(model.songSounds.guitar),
@@ -114,6 +127,13 @@ func createModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
 
 	model.startTime = time.Now()
 	model.speaker = lm.speaker
+
+	if model.isDrums() {
+		model.lineTime = stngs.drumLineTime
+	} else {
+		model.lineTime = stngs.guitarLineTime
+	}
+
 	return model
 }
 
@@ -158,7 +178,7 @@ func createModelFromChart(chart *Chart, trackName trackName, stngs settings) pla
 }
 
 func (m playSongModel) Init() tea.Cmd {
-	return tea.Batch(timerCmd(m.settings.lineTime))
+	return tea.Batch(timerCmd(m.lineTime))
 }
 
 func timerCmd(d time.Duration) tea.Cmd {
@@ -167,10 +187,14 @@ func timerCmd(d time.Duration) tea.Cmd {
 	})
 }
 
+func (m playSongModel) isDrums() bool {
+	return m.chartInfo.track.instrument == instrumentDrums
+}
+
 // returns the notes that should currently be on the screen
 func (m playSongModel) CreateCurrentNoteChart() viewModel {
 	result := make([]NoteLine, m.settings.fretBoardHeight)
-	lineTimeMs := int(m.settings.lineTime / time.Millisecond)
+	lineTimeMs := int(m.lineTime / time.Millisecond)
 
 	// each iteration of the loop displays notes after displayTimeMs
 	displayTimeMs := m.currentTimeMs - lineTimeMs
@@ -178,7 +202,7 @@ func (m playSongModel) CreateCurrentNoteChart() viewModel {
 	// the nextNoteIndex should not be printed
 	latestNotPrintedNoteIndex := m.nextNoteIndex - 1
 
-	isDrums := m.chartInfo.track.instrument == instrumentDrums
+	isDrums := m.isDrums()
 
 	for i := 0; i < m.settings.fretBoardHeight; i++ {
 		var noteColors NoteColors = NoteColors{}
@@ -411,15 +435,19 @@ func (m playSongModel) unmuteCurrentInstrument() {
 }
 
 func (m playSongModel) currentInstrumentVolumeControl() *effects.Volume {
-	switch m.chartInfo.track.instrument {
+	return m.songSounds.getSongSoundForInstrument(m.chartInfo.track.instrument).soundStream
+}
+
+func (ss songSounds) getSongSoundForInstrument(instrument string) playableSound[*effects.Volume] {
+	switch instrument {
 	case instrumentGuitar:
-		return m.songSounds.guitar.soundStream
+		return ss.guitar
 	case instrumentBass:
-		return m.songSounds.bass.soundStream
+		return ss.bass
 	case instrumentDrums:
-		return m.songSounds.drums.soundStream
+		return ss.drums
 	}
-	return nil
+	return playableSound[*effects.Volume]{}
 }
 
 func (m playSongModel) setGuitarSilent(silent bool) {
@@ -457,7 +485,7 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.paused {
 		switch msg.(type) {
 		case tickMsg:
-			return m, timerCmd(m.settings.lineTime)
+			return m, timerCmd(m.lineTime)
 		}
 
 		if m.isPauseMsg(msg) {
@@ -481,7 +509,7 @@ func (m playSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tickMsg:
-		m.currentTimeMs += int(m.settings.lineTime / time.Millisecond)
+		m.currentTimeMs += int(m.lineTime / time.Millisecond)
 		currentDateTime := time.Time(tickMsg(msg))
 		elapsedTimeSinceStart := currentDateTime.Sub(m.startTime) - m.totalPauseTime
 		sleepTime := time.Duration(m.currentTimeMs)*time.Millisecond - elapsedTimeSinceStart
@@ -555,7 +583,7 @@ func (m playSongModel) playNoteNow(noteIndex int) playSongModel {
 }
 
 func (m playSongModel) currentStrumTimeMs() int {
-	lineTimeMs := int(m.settings.lineTime / time.Millisecond)
+	lineTimeMs := int(m.lineTime / time.Millisecond)
 	strumLineIndex := m.getStrumLineIndex()
 	currentDateTime := time.Now()
 	elapsedTimeSinceStart := currentDateTime.Sub(m.startTime) - m.totalPauseTime

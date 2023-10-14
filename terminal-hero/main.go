@@ -39,7 +39,8 @@ type mainModel struct {
 
 type settings struct {
 	fretBoardHeight int
-	lineTime        time.Duration
+	guitarLineTime  time.Duration
+	drumLineTime    time.Duration
 	strumTolerance  time.Duration
 }
 
@@ -47,14 +48,11 @@ func defaultSettings() settings {
 	lineTime := 30 * time.Millisecond
 	strumTolerance := 100 * time.Millisecond
 	fretboardHeight := 35
-	return settings{fretboardHeight, lineTime, strumTolerance}
+	return settings{fretboardHeight, lineTime, (lineTime * 3) / 2, strumTolerance}
 }
 
 func initialMainModel() mainModel {
-	lineTime := 30 * time.Millisecond
-	strumTolerance := 100 * time.Millisecond
-	fretboardHeight := 35
-	settings := settings{fretboardHeight, lineTime, strumTolerance}
+	settings := defaultSettings()
 
 	songRootPath, err := createAndGetSubDataFolder("Songs")
 	if err != nil {
@@ -152,7 +150,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, tea.Batch(hsCmd, initCmd)
 		} else if loadModel.finishedSuccessfully() {
-			playModel := createModelFromLoadModel(loadModel, m.settings)
+			playModel := createPlayModelFromLoadModel(loadModel, m.settings)
 			pmCmd := playModel.Init()
 			m.state = playSong
 			m.playSongModel = playModel

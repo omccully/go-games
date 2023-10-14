@@ -48,7 +48,7 @@ func TestViewBeforeNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
 	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
-	model.settings.lineTime = 100 * time.Millisecond
+	model.settings.guitarLineTime = 100 * time.Millisecond
 
 	vm := model.CreateCurrentNoteChart()
 
@@ -69,7 +69,7 @@ func TestViewFirstNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
 	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
-	model.settings.lineTime = 100 * time.Millisecond
+	model.settings.guitarLineTime = 100 * time.Millisecond
 	model.currentTimeMs = 12100
 
 	model = model.UpdateViewModel()
@@ -251,9 +251,9 @@ func TestSkipNote(t *testing.T) {
 
 func initializeModelToStrumLineTime(model playSongModel, strumLineTime int) playSongModel {
 	// lineTime and fretBoardHeight don't really affect the note playing tests
-	model.settings.lineTime = 30 * time.Millisecond
+	model.settings.guitarLineTime = 30 * time.Millisecond
 	model.settings.fretBoardHeight = 30
-	lineTimeMs := int(model.settings.lineTime / time.Millisecond)
+	lineTimeMs := int(model.settings.guitarLineTime / time.Millisecond)
 	strumLineIndex := model.getStrumLineIndex()
 	model.currentTimeMs = strumLineTime + (lineTimeMs * strumLineIndex)
 	return model
