@@ -128,12 +128,6 @@ func createPlayModelFromLoadModel(lm loadSongModel, stngs settings) playSongMode
 	model.startTime = time.Now()
 	model.speaker = lm.speaker
 
-	if model.isDrums() {
-		model.lineTime = stngs.drumLineTime
-	} else {
-		model.lineTime = stngs.guitarLineTime
-	}
-
 	return model
 }
 
@@ -164,11 +158,17 @@ func createModelFromChart(chart *Chart, trackName trackName, stngs settings) pla
 
 	startTime := time.Time{}
 
+	lineTime := stngs.guitarLineTime
+	if trackName.instrument == instrumentDrums {
+		lineTime = stngs.drumLineTime
+	}
+
 	return playSongModel{
 		chart:         chart,
 		realTimeNotes: playableNotes,
 		startTime:     startTime,
 		settings:      stngs,
+		lineTime:      lineTime,
 		playStats: playStats{
 			lastPlayedNoteIndex: -1,
 			totalNotes:          len(playableNotes),

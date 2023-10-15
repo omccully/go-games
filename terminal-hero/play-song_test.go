@@ -69,7 +69,7 @@ func TestViewFirstNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
 	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
-	model.settings.guitarLineTime = 100 * time.Millisecond
+	model.lineTime = 100 * time.Millisecond
 	model.currentTimeMs = 12100
 
 	model = model.UpdateViewModel()
