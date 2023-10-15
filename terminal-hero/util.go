@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 )
 
@@ -220,10 +221,24 @@ func pluralize(count int, singular string, plural string) string {
 }
 
 func setupKeymapForList(list *list.Model) {
-	list.KeyMap.NextPage.SetKeys("right", "d")
-	list.KeyMap.PrevPage.SetKeys("left", "a")
-	list.KeyMap.CursorDown.SetKeys("down", "s")
-	list.KeyMap.CursorUp.SetKeys("up", "w")
+	ctrlf := key.NewBinding(key.WithKeys("ctrl+f"), key.WithHelp("ctrl+f", "search"))
+	list.AdditionalShortHelpKeys = func() []key.Binding {
+		return []key.Binding{ctrlf}
+	}
+	list.AdditionalFullHelpKeys = func() []key.Binding {
+		return []key.Binding{ctrlf}
+	}
+	list.KeyMap.NextPage.SetKeys("right", "d", "l")
+	list.KeyMap.NextPage.SetHelp("→/l/d", "right")
+
+	list.KeyMap.PrevPage.SetKeys("left", "a", "h")
+	list.KeyMap.PrevPage.SetHelp("←/h/a", "left")
+
+	list.KeyMap.CursorDown.SetKeys("down", "s", "j")
+	list.KeyMap.CursorDown.SetHelp("↓/j/s", "down")
+
+	list.KeyMap.CursorUp.SetKeys("up", "w", "k")
+	list.KeyMap.CursorUp.SetHelp("↑/k/w", "up")
 }
 
 func fileExists(path string) bool {

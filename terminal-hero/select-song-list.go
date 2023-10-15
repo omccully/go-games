@@ -45,7 +45,7 @@ func initialSelectSongListModel(spkr soundPlayer, afo audioFileOpener) selectSon
 	selectSongMenuList := list.New([]list.Item{}, createListDd(true), 0, 0)
 	selectSongMenuList.SetShowStatusBar(false)
 	selectSongMenuList.SetFilteringEnabled(false)
-	selectSongMenuList.SetShowHelp(false)
+	selectSongMenuList.SetShowHelp(true)
 	selectSongMenuList.DisableQuitKeybindings()
 	styleList(&selectSongMenuList)
 
