@@ -170,7 +170,16 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if newSearchStr != m.searchStr {
 
 			results := m.selectedSongFolder.search(newSearchStr)
-			m.songList, _ = m.songList.setSongs(results, nil, "Search results")
+
+			searchLocationStr := m.selectedSongFolder.name
+			if m.selectedSongFolder.parent != nil {
+				summarized, err := m.selectedSongFolder.summarizedPath()
+				if err == nil {
+					searchLocationStr = summarized
+				}
+			}
+
+			m.songList, _ = m.songList.setSongs(results, nil, "Search results in "+searchLocationStr)
 			m.searchStr = newSearchStr
 		}
 

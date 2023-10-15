@@ -26,10 +26,10 @@ var listTitleStyle = lipgloss.NewStyle().
 	Padding(0, 1, 0, 1)
 
 var songListStyle = lipgloss.NewStyle().
-	Padding(1, 2, 1, 2).
+	Padding(1, 1, 1, 1).
 	Border(lipgloss.RoundedBorder()).
 	BorderForeground(lipgloss.Color("#f0f007")).
-	Width(70).
+	Width(71).
 	Bold(true)
 
 func styleList(list *list.Model) {

@@ -32,19 +32,32 @@ func (fldr *songFolder) relativePath() (string, error) {
 
 func (i *songFolder) Title() string {
 	ft := i.fullTitle()
-	return truncate.StringWithTail(ft, 55, "...")
+	return truncate.StringWithTail(ft, 54, "...")
 }
 
 func (i *songFolder) fullTitle() string {
 	if i.context != nil && i.context.searching {
-		rp, err := i.relativePath()
-		rp = strings.ReplaceAll(rp, "Guitar Hero", "GH")
-		rp = strings.ReplaceAll(rp, "Rock Band", "RB")
+		summarized, err := i.summarizedPath()
+
 		if err == nil {
-			return rp
+			return summarized
 		}
 	}
 	return i.name
+}
+
+func (i *songFolder) summarizedPath() (string, error) {
+	rp, err := i.relativePath()
+	if err != nil {
+		return "", err
+	}
+	return shortenGameNamesInStr(rp), nil
+}
+
+func shortenGameNamesInStr(name string) string {
+	name = strings.ReplaceAll(name, "Guitar Hero", "GH")
+	name = strings.ReplaceAll(name, "Rock Band", "RB")
+	return name
 }
 
 func (i *songFolder) Description() string {
