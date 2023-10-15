@@ -140,50 +140,58 @@ func (m selectSongModel) reEditSearch() (selectSongModel, tea.Cmd) {
 }
 
 func (m selectSongModel) navigateSearchResults() selectSongModel {
+	if !m.songList.hasSongs() {
+		// don't focus on search results if there are no results
+		return m
+	}
+
 	m.searchState = ssNavigatingSearchResults
 	m.songList.menuList.Select(0)
 	m.songList.menuList.SetDelegate(createListDd(true))
 	return m
 }
 
+func (m selectSongModel) UpdateSearching(msg tea.Msg) (selectSongModel, tea.Cmd) {
+	// send keys to search text box when searching
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			if m.searchState != ssNotSearching {
+				return m.stopSearching()
+			}
+		case "enter", "down":
+			if m.searchState == ssSearching {
+				return m.navigateSearchResults(), nil
+			}
+		}
+	}
+	ti, tiCmd := m.searchTi.Update(msg)
+	m.searchTi = &ti
+	newSearchStr := m.searchTi.Value()
+
+	if newSearchStr != m.searchStr {
+
+		results := m.selectedSongFolder.search(newSearchStr)
+
+		searchLocationStr := m.selectedSongFolder.name
+		if m.selectedSongFolder.parent != nil {
+			summarized, err := m.selectedSongFolder.summarizedPath()
+			if err == nil {
+				searchLocationStr = summarized
+			}
+		}
+
+		m.songList, _ = m.songList.setSongs(results, nil, "Search results in "+searchLocationStr)
+		m.searchStr = newSearchStr
+	}
+
+	return m, tiCmd
+}
+
 func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.searchState == ssSearching {
-		// send keys to search text box when searching
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch msg.String() {
-			case "esc":
-				if m.searchState != ssNotSearching {
-					return m.stopSearching()
-				}
-			case "enter", "down":
-				if m.searchState == ssSearching {
-					return m.navigateSearchResults(), nil
-				}
-
-			}
-		}
-		ti, tiCmd := m.searchTi.Update(msg)
-		m.searchTi = &ti
-		newSearchStr := m.searchTi.Value()
-
-		if newSearchStr != m.searchStr {
-
-			results := m.selectedSongFolder.search(newSearchStr)
-
-			searchLocationStr := m.selectedSongFolder.name
-			if m.selectedSongFolder.parent != nil {
-				summarized, err := m.selectedSongFolder.summarizedPath()
-				if err == nil {
-					searchLocationStr = summarized
-				}
-			}
-
-			m.songList, _ = m.songList.setSongs(results, nil, "Search results in "+searchLocationStr)
-			m.searchStr = newSearchStr
-		}
-
-		return m, tiCmd
+		return m.UpdateSearching(msg)
 	}
 
 	switch msg := msg.(type) {
@@ -213,11 +221,25 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.stopSearching()
 			}
 		case "backspace":
-			if m.selectedSongFolder.parent != nil {
+			if m.searchState == ssNavigatingSearchResults {
+
+				m, recmd := m.reEditSearch()
+
+				// send backspace to search text box
+				mg, cmd2 := m.UpdateSearching(msg)
+
+				return mg, tea.Batch(recmd, cmd2)
+			} else if m.selectedSongFolder.parent != nil {
 				// setSelectedSongFolder will also return a command to update the preview sound
 				return m.setSelectedSongFolder(m.selectedSongFolder.parent, m.selectedSongFolder)
 			}
 		default:
+			if m.searchState == ssNavigatingSearchResults {
+				if msg.String() == "up" && m.songList.menuList.Index() == 0 {
+					return m.reEditSearch()
+				}
+			}
+
 			// send keys to menu list when not searching
 			slm, mlCmd := m.songList.Update(msg)
 			m.songList = slm.(selectSongListModel)

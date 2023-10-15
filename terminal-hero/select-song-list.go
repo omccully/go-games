@@ -110,6 +110,10 @@ func (m selectSongListModel) setSongs(songs []*songFolder, highlightedSubFolder 
 	return m.highlightSubfolder(highlightedSubFolder)
 }
 
+func (m selectSongListModel) hasSongs() bool {
+	return len(m.menuList.Items()) > 0
+}
+
 func (m selectSongListModel) setSize(width, height int) selectSongListModel {
 	m.menuList.SetSize(width, height)
 	return m

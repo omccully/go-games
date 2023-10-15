@@ -176,16 +176,19 @@ func (fldr *songFolder) addSubFolder(name string) *songFolder {
 
 func (fldr *songFolder) search(text string) []*songFolder {
 	results := make([]*songFolder, 0)
-	searchRecursive(fldr, text, &results)
+	searchRecursive(fldr, text, 100, &results)
 	return results
 }
 
-func searchRecursive(fldr *songFolder, text string, results *[]*songFolder) {
+func searchRecursive(fldr *songFolder, text string, maxResults int, results *[]*songFolder) {
 	for _, f := range fldr.subFolders {
+		if len(*results) > maxResults {
+			return
+		}
 		if strings.Contains(strings.ToLower(f.name), strings.ToLower(text)) {
 			*results = append(*results, f)
 		}
-		searchRecursive(f, text, results)
+		searchRecursive(f, text, maxResults, results)
 	}
 }
 
