@@ -65,6 +65,16 @@ func TestViewBeforeNotes(t *testing.T) {
 	}
 }
 
+func TestCountNotes(t *testing.T) {
+	chart := openCultOfPersonalityChart(t)
+
+	model := createModelFromChart(chart, parseTrackName("ExpertSingle"), defaultSettings())
+
+	if model.playStats.totalNotes != 1278 {
+		t.Error("Expected 1278 notes, got", model.playStats.totalNotes)
+	}
+}
+
 func TestViewFirstNotes(t *testing.T) {
 	chart := openCultOfPersonalityChart(t)
 
@@ -108,13 +118,13 @@ func TestPlayNote_Overhits_ResetsStreak(t *testing.T) {
 	strumLineTime := 9600
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 
 	model = model.PlayNote(1, strumLineTime)
 
 	// there's no notes anywhere near this time, so note streak gets reset
-	if model.playStats.noteStreak != 0 {
-		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreakIndividuals)
 	}
 
 	if model.viewModel.noteStates[1].playedCorrectly {
@@ -132,7 +142,7 @@ func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 	strumLineTime := 10050
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 
 	if model.realTimeNotes[0].played {
 		t.Error("Expected note to not be marked as played, got", model.realTimeNotes[0].played)
@@ -141,8 +151,8 @@ func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 	hitModel := model.PlayNote(0, strumLineTime)
 
 	// correct note hit
-	if hitModel.playStats.noteStreak != 11 {
-		t.Error("Expected note streak to be 11, got", hitModel.playStats.noteStreak)
+	if hitModel.playStats.noteStreakIndividuals != 11 {
+		t.Error("Expected note streak to be 11, got", hitModel.playStats.noteStreakIndividuals)
 	}
 
 	if !hitModel.viewModel.noteStates[0].playedCorrectly {
@@ -159,8 +169,8 @@ func TestPlayNote_HitsNoteAtCorrectTime(t *testing.T) {
 
 	missModel := model.PlayNote(2, strumLineTime)
 	// wrong note
-	if missModel.playStats.noteStreak != 0 {
-		t.Error("Expected note streak to be 0, got", missModel.playStats.noteStreak)
+	if missModel.playStats.noteStreakIndividuals != 0 {
+		t.Error("Expected note streak to be 0, got", missModel.playStats.noteStreakIndividuals)
 	}
 
 	if missModel.viewModel.noteStates[2].playedCorrectly {
@@ -178,23 +188,23 @@ func TestHitNote_ThenDidntPlayNextNote_ResetsStreakWhenNoteIsOutsideOfWindow(t *
 	strumLineTime := 10050
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 	model = model.PlayNote(0, strumLineTime)
 
 	// correct note hit
-	if model.playStats.noteStreak != 11 {
-		t.Error("Expected note streak to be 11, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 11 {
+		t.Error("Expected note streak to be 11, got", model.playStats.noteStreakIndividuals)
 	}
 
 	// time of the next note (yellow)
 	model = model.ProcessNoNotePlayed(10260)
-	if model.playStats.noteStreak != 11 {
-		t.Error("Expected note streak to still be 11, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 11 {
+		t.Error("Expected note streak to still be 11, got", model.playStats.noteStreakIndividuals)
 	}
 
 	model = model.ProcessNoNotePlayed(10470)
-	if model.playStats.noteStreak != 0 {
-		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreakIndividuals)
 	}
 }
 
@@ -204,12 +214,12 @@ func TestDoubleStrumSameNote_ResetsNoteStreak(t *testing.T) {
 	strumLineTime := 10050
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 	model = model.PlayNote(0, strumLineTime)
 	model = model.PlayNote(0, strumLineTime+10)
 
-	if model.playStats.noteStreak != 0 {
-		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreakIndividuals)
 	}
 }
 
@@ -219,11 +229,11 @@ func TestStrumWrongNote_ThenCorrectNote_AllowsPlayingCorrectNote(t *testing.T) {
 	strumLineTime := 10050
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 	model = model.PlayNote(3, strumLineTime)
 	model = model.PlayNote(0, strumLineTime+10)
-	if model.playStats.noteStreak != 1 {
-		t.Error("Expected note streak to be 1, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 1 {
+		t.Error("Expected note streak to be 1, got", model.playStats.noteStreakIndividuals)
 	}
 }
 
@@ -244,8 +254,8 @@ func TestSkipNote(t *testing.T) {
 		t.Error("Expected second note to be marked as played, got", model.realTimeNotes[1].played)
 	}
 
-	if model.playStats.notesHit != 1 {
-		t.Error("Expected notesHit to be 1, got", model.playStats.notesHit)
+	if model.playStats.notesHitIndividials != 1 {
+		t.Error("Expected notesHit to be 1, got", model.playStats.notesHitIndividials)
 	}
 }
 
@@ -269,8 +279,8 @@ func TestPlayChordNoteAtBeginningOfSong(t *testing.T) {
 	model = model.PlayNote(4, strumLineTime)
 	model = model.PlayNote(2, strumLineTime)
 
-	if model.playStats.notesHit != 2 {
-		t.Error("Expected notesHit to be 2, got", model.playStats.notesHit)
+	if model.playStats.notesHitIndividials != 2 {
+		t.Error("Expected notesHit to be 2, got", model.playStats.notesHitIndividials)
 	}
 }
 
@@ -283,14 +293,14 @@ func TestPlayChordNote_OutOfChartOrder_DoesNotResetStreak(t *testing.T) {
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 
 	model = model.PlayNote(4, strumLineTime)
 	model = model.PlayNote(2, strumLineTime+10)
 	model = model.PlayNote(1, strumLineTime+20)
 
-	if model.playStats.noteStreak != 13 {
-		t.Error("Expected note streak to be 13, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 13 {
+		t.Error("Expected note streak to be 13, got", model.playStats.noteStreakIndividuals)
 	}
 }
 
@@ -303,18 +313,18 @@ func TestPlayChordNoteWrongByDoubletappingFirstNote_ResetsStreak(t *testing.T) {
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 
 	model = model.PlayNote(4, strumLineTime)
 	model = model.PlayNote(4, strumLineTime+5)
 	model = model.PlayNote(2, strumLineTime+10)
 	model = model.PlayNote(1, strumLineTime+20)
 
-	if model.playStats.noteStreak != 3 {
-		t.Error("Expected note streak to be 3, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 3 {
+		t.Error("Expected note streak to be 3, got", model.playStats.noteStreakIndividuals)
 	}
-	if model.playStats.notesHit != 3 {
-		t.Error("Expected notesHit to be 3, got", model.playStats.notesHit)
+	if model.playStats.notesHitIndividials != 3 {
+		t.Error("Expected notesHit to be 3, got", model.playStats.notesHitIndividials)
 	}
 }
 
@@ -327,18 +337,18 @@ func TestPlayChordNoteWrongByDoubletappingLastNote_ResetsStreak(t *testing.T) {
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 
 	model = model.PlayNote(4, strumLineTime)
 	model = model.PlayNote(2, strumLineTime+10)
 	model = model.PlayNote(1, strumLineTime+20)
 	model = model.PlayNote(1, strumLineTime+21)
 
-	if model.playStats.noteStreak != 0 {
-		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreakIndividuals)
 	}
-	if model.playStats.notesHit != 3 {
-		t.Error("Expected notesHit to be 3, got", model.playStats.notesHit)
+	if model.playStats.notesHitIndividials != 3 {
+		t.Error("Expected notesHit to be 3, got", model.playStats.notesHitIndividials)
 	}
 }
 
@@ -351,18 +361,18 @@ func TestPlayChordNoteWrongByDoubletappingMiddleNote_ResetsStreakAndMissesNote(t
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 
 	model = model.PlayNote(4, strumLineTime)
 	model = model.PlayNote(2, strumLineTime+10)
 	model = model.PlayNote(2, strumLineTime+15)
 	model = model.PlayNote(1, strumLineTime+21)
 
-	if model.playStats.noteStreak != 0 {
-		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreakIndividuals)
 	}
-	if model.playStats.notesHit != 0 {
-		t.Error("Expected notesHit to be 0, got", model.playStats.notesHit)
+	if model.playStats.notesHitIndividials != 0 {
+		t.Error("Expected notesHit to be 0, got", model.playStats.notesHitIndividials)
 	}
 }
 
@@ -375,12 +385,12 @@ func TestPlayWrongNoteEntirelyForChord_ResetsStreak(t *testing.T) {
 	// to move the lastPlayedNoteIndex to the note before the chord
 	model = model.ProcessNoNotePlayed(strumLineTime - 300)
 
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 
 	model = model.PlayNote(0, strumLineTime)
 
-	if model.playStats.noteStreak != 0 {
-		t.Error("Expected note streak to be 0, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 0 {
+		t.Error("Expected note streak to be 0, got", model.playStats.noteStreakIndividuals)
 	}
 }
 
@@ -391,7 +401,7 @@ func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
 	model = initializeModelToStrumLineTime(model, strumLineTime)
 
 	model = model.ProcessNoNotePlayed(strumLineTime)
-	model.playStats.noteStreak = 10
+	model.playStats.noteStreakIndividuals = 10
 
 	// skip YO chord
 	yoChord := getNextNoteOrChord(model.realTimeNotes, model.playStats.lastPlayedNoteIndex+1)
@@ -401,12 +411,12 @@ func TestSkipChord_ThenHitNextSingleNote(t *testing.T) {
 
 	model = model.PlayNote(ncRed, strumLineTime)
 
-	if model.playStats.notesHit != 1 {
-		t.Error("Expected notesHit to be 1, got", model.playStats.notesHit)
+	if model.playStats.notesHitIndividials != 1 {
+		t.Error("Expected notesHit to be 1, got", model.playStats.notesHitIndividials)
 	}
 
-	if model.playStats.noteStreak != 1 {
-		t.Error("Expected note streak to be 1, got", model.playStats.noteStreak)
+	if model.playStats.noteStreakIndividuals != 1 {
+		t.Error("Expected note streak to be 1, got", model.playStats.noteStreakIndividuals)
 	}
 }
 
@@ -421,27 +431,27 @@ func TestReplayChord(t *testing.T) {
 	model = model.PlayNote(ncRed, strumLineTime)
 	model = model.PlayNote(ncOrange, strumLineTime)
 
-	if model.playStats.noteStreak != 2 {
-		t.Error("Expected noteStreak to be 2, got", model.playStats.notesHit)
+	if model.playStats.noteStreakIndividuals != 2 {
+		t.Error("Expected noteStreak to be 2, got", model.playStats.notesHitIndividials)
 	}
 
 	model = model.playLastHitNote(52680)
 
-	if model.playStats.noteStreak != 4 {
-		t.Error("Expected noteStreak to be 4, got", model.playStats.notesHit)
+	if model.playStats.noteStreakIndividuals != 4 {
+		t.Error("Expected noteStreak to be 4, got", model.playStats.notesHitIndividials)
 	}
 
 	model = model.playLastHitNote(52830)
 	model = model.playLastHitNote(52980)
 
-	if model.playStats.noteStreak != 8 {
-		t.Error("Expected noteStreak to be 8, got", model.playStats.notesHit)
+	if model.playStats.noteStreakIndividuals != 8 {
+		t.Error("Expected noteStreak to be 8, got", model.playStats.notesHitIndividials)
 	}
 
 	model = model.playLastHitNote(53130)
 
-	if model.playStats.noteStreak != 0 {
-		t.Error("Expected noteStreak to be 0, got", model.playStats.notesHit)
+	if model.playStats.noteStreakIndividuals != 0 {
+		t.Error("Expected noteStreak to be 0, got", model.playStats.notesHitIndividials)
 	}
 }
 

@@ -3,14 +3,16 @@ package main
 import "math"
 
 type playStats struct {
-	lastPlayedNoteIndex int
-	totalNotes          int
-	notesHit            int
-	noteStreak          int
-	rockMeter           float64 // 0.0 = failed, 1.0 = max
-	score               int
-	bestNoteStreak      int
-	failed              bool
+	lastPlayedNoteIndex   int
+	totalNotes            int
+	notesHitGrouped       int
+	noteStreakGrouped     int
+	notesHitIndividials   int
+	noteStreakIndividuals int
+	rockMeter             float64 // 0.0 = failed, 1.0 = max
+	score                 int
+	bestNoteStreakGrouped int
+	failed                bool
 }
 
 const rockMeterIncrement = 0.02
@@ -18,10 +20,15 @@ const rockMeterDecrement = 0.025
 const pointsPerNote = 50
 
 func (ps *playStats) hitNote(noteSize int) {
-	ps.notesHit += noteSize
-	ps.noteStreak += noteSize
-	if ps.noteStreak > ps.bestNoteStreak {
-		ps.bestNoteStreak = ps.noteStreak
+	ps.notesHitGrouped++
+	ps.noteStreakGrouped++
+
+	// for testing
+	ps.notesHitIndividials += noteSize
+	ps.noteStreakIndividuals += noteSize
+
+	if ps.noteStreakGrouped > ps.bestNoteStreakGrouped {
+		ps.bestNoteStreakGrouped = ps.noteStreakGrouped
 	}
 	ps.increaseRockMeter(rockMeterIncrement * noteSizeRockMeterMultiplier(noteSize))
 	ps.score += pointsPerNote * noteSize * ps.getMultiplier()
@@ -29,12 +36,14 @@ func (ps *playStats) hitNote(noteSize int) {
 
 func (ps *playStats) missNote(noteSize int) {
 	ps.decreaseRockMeter(rockMeterDecrement * noteSizeRockMeterMultiplier(noteSize))
-	ps.noteStreak = 0
+	ps.noteStreakGrouped = 0
+	ps.noteStreakIndividuals = 0
 }
 
 func (ps *playStats) overhitNote() {
 	ps.decreaseRockMeter(rockMeterDecrement * noteSizeRockMeterMultiplier(1))
-	ps.noteStreak = 0
+	ps.noteStreakGrouped = 0
+	ps.noteStreakIndividuals = 0
 }
 
 func (ps playStats) finished() bool {
@@ -53,7 +62,7 @@ func (ps *playStats) decreaseRockMeter(amount float64) {
 }
 
 func (ps *playStats) percentage() float64 {
-	return float64(ps.notesHit) / float64(ps.totalNotes)
+	return float64(ps.notesHitGrouped) / float64(ps.totalNotes)
 }
 
 func (ps *playStats) starCount() int {
@@ -109,11 +118,11 @@ func smallStarString(starCount int) string {
 
 // gets the multiplier that modifies how many points each note is worth
 func (ps playStats) getMultiplier() int {
-	if ps.noteStreak < 10 {
+	if ps.noteStreakGrouped < 10 {
 		return 1
-	} else if ps.noteStreak < 20 {
+	} else if ps.noteStreakGrouped < 20 {
 		return 2
-	} else if ps.noteStreak < 30 {
+	} else if ps.noteStreakGrouped < 30 {
 		return 3
 	} else {
 		return 4
@@ -136,4 +145,22 @@ func noteSizeRockMeterMultiplier(noteSize int) float64 {
 	default:
 		return 1.0
 	}
+}
+
+func countNotes(notes []playableNote) int {
+	if len(notes) == 0 {
+		return 0
+	}
+
+	count := 0
+	// chords count as single notes
+	prevTime := notes[0].TimeStamp
+
+	for i := 1; i < len(notes); i++ {
+		if notes[i].TimeStamp != prevTime {
+			count++
+			prevTime = notes[i].TimeStamp
+		}
+	}
+	return count + 1
 }

@@ -171,7 +171,7 @@ func createModelFromChart(chart *Chart, trackName trackName, stngs *settings) pl
 		lineTime:      lineTime,
 		playStats: playStats{
 			lastPlayedNoteIndex: -1,
-			totalNotes:          len(playableNotes),
+			totalNotes:          countNotes(playableNotes),
 			rockMeter:           0.5,
 		},
 	}

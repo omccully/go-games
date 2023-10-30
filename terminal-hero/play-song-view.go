@@ -132,8 +132,8 @@ func (m playSongModel) ComplexView() string {
 	multiplier := m.playStats.getMultiplier()
 	scoreAndMultiplier.WriteString(widthStyle.Render("Multiplier: ") + "x" + multiplierStyles[multiplier-1].Render(strconv.Itoa(multiplier)) + "\n")
 
-	if m.playStats.noteStreak > 25 {
-		scoreAndMultiplier.WriteString(widthStyle.Render("Streak: ") + strconv.Itoa(m.playStats.noteStreak))
+	if m.playStats.noteStreakGrouped > 25 {
+		scoreAndMultiplier.WriteString(widthStyle.Render("Streak: ") + strconv.Itoa(m.playStats.noteStreakGrouped))
 	}
 
 	rockMeter := strings.Builder{}

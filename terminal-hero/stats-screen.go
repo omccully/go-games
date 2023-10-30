@@ -73,7 +73,7 @@ func saveSongScore(db grDbAccessor, ci chartInfo, ps playStats, songRootPath str
 
 	s := song{fileHash, relative, ci.songName()}
 
-	return db.setSongScore(s, ci.track.fullTrackName, ps.score, ps.notesHit, ps.totalNotes)
+	return db.setSongScore(s, ci.track.fullTrackName, ps.score, ps.notesHitGrouped, ps.totalNotes)
 }
 
 func statsScreenSoundFileName(passed bool) string {
@@ -162,12 +162,12 @@ func (m statsScreenModel) View() string {
 	}
 
 	if m.playStats.failed {
-		sl.add("Notes hit", fmt.Sprintf("%d", m.playStats.notesHit))
+		sl.add("Notes hit", fmt.Sprintf("%d", m.playStats.notesHitGrouped))
 	} else {
 		sl.add("Percentage", fmt.Sprintf("%.0f", m.playStats.percentage()*100)+"%")
 		sl.add("Score", fmt.Sprintf("%d", m.playStats.score))
-		sl.add("Notes hit", fmt.Sprintf("%d/%d", m.playStats.notesHit, m.playStats.totalNotes))
-		sl.add("Best note streak", fmt.Sprintf("%d", m.playStats.bestNoteStreak))
+		sl.add("Notes hit", fmt.Sprintf("%d/%d", m.playStats.notesHitGrouped, m.playStats.totalNotes))
+		sl.add("Best note streak", fmt.Sprintf("%d", m.playStats.bestNoteStreakGrouped))
 	}
 
 	sb.WriteString(statsListStyle.Render(sl.View()))
