@@ -20,7 +20,7 @@ import (
 
 type loadSongModel struct {
 	chartFolderPath    string
-	settings           settings
+	settings           *settings
 	spinner            spinner.Model
 	soundEffects       *loadedSoundEffectsMsg
 	songSounds         *loadedSongSoundsMsg
@@ -84,7 +84,7 @@ func (m loadSongModel) Init() tea.Cmd {
 	return tea.Batch(loadSongSoundsCmd(m.chartFolderPath, m.speaker), convertChartCmd(m.chartFolderPath), loadSongEffectsCmd(m.speaker), m.spinner.Tick)
 }
 
-func initialLoadModel(chartFolderPath string, stngs settings, spkr soundPlayer) loadSongModel {
+func initialLoadModel(chartFolderPath string, stngs *settings, spkr soundPlayer) loadSongModel {
 	s := spinner.New()
 	s.Spinner = spinner.Points
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))

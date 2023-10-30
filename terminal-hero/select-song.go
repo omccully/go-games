@@ -25,7 +25,7 @@ type selectSongModel struct {
 	dbAccessor                   grDbAccessor
 	songScores                   *map[string]songScore
 	defaultHighlightRelativePath string
-	settings                     settings
+	settings                     *settings
 
 	// searching state. ssNotSearching -> ssSearching -> ssNavigatingSearchResults
 	searchState searchState
@@ -41,7 +41,7 @@ const (
 	ssNavigatingSearchResults
 )
 
-func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings settings, spkr *thSpeaker) selectSongModel {
+func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings *settings, spkr *thSpeaker) selectSongModel {
 	model := selectSongModel{}
 	model.settings = settings
 
@@ -56,9 +56,9 @@ func initialSelectSongModel(rootPath string, dbAccessor grDbAccessor, settings s
 }
 
 func (m selectSongModel) updateSongListSize() selectSongModel {
-	height := m.settings.fretBoardHeight - 9
+	height := m.settings.windowHeight - 12
 	if m.searchState != ssNotSearching {
-		height = m.settings.fretBoardHeight - 19
+		height = m.settings.windowHeight - 22
 	}
 	log.Info("Updating song list size to ", "height", height)
 	m.songList = m.songList.setSize(70, height)
@@ -195,6 +195,10 @@ func (m selectSongModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m = m.updateSongListSize()
+		log.Info("Window size changed", "height", m.settings.windowHeight)
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":

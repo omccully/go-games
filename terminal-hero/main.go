@@ -33,22 +33,23 @@ type mainModel struct {
 	statsScreenModel statsScreenModel
 	songRootPath     string
 	dbAccessor       grDbAccessor
-	settings         settings
+	settings         *settings
 	speaker          *thSpeaker
 }
 
 type settings struct {
 	fretBoardHeight int
+	windowHeight    int
 	guitarLineTime  time.Duration
 	drumLineTime    time.Duration
 	strumTolerance  time.Duration
 }
 
-func defaultSettings() settings {
+func defaultSettings() *settings {
 	lineTime := 30 * time.Millisecond
 	strumTolerance := 100 * time.Millisecond
 	fretboardHeight := 35
-	return settings{fretboardHeight, lineTime, (lineTime * 3) / 2, strumTolerance}
+	return &settings{fretboardHeight, 38, lineTime, (lineTime * 3) / 2, strumTolerance}
 }
 
 func initialMainModel() mainModel {
@@ -104,10 +105,15 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 
+	if msg, ok := msg.(tea.WindowSizeMsg); ok {
+		log.Info("Window size changed in main", "height", msg.Height, "width", msg.Width)
+		m.settings.windowHeight = msg.Height
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.settings.fretBoardHeight = msg.Height - 3
-		return m, nil
+		// return m, nil
 	case dbInitializedMsg:
 		if msg.err != nil {
 			panic(msg.err)

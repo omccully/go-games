@@ -20,7 +20,7 @@ type playSongModel struct {
 	currentTimeMs int       // current time position within the chart for notes that are now appearing
 	lineTime      time.Duration
 
-	settings  settings
+	settings  *settings
 	playStats playStats
 
 	nextNoteIndex int // the index of the next note that should not be displayed yet
@@ -99,7 +99,7 @@ func convToStandardSound[T beep.Streamer](s playableSound[T]) playableSound[beep
 	return playableSound[beep.Streamer]{s.soundStream, s.format}
 }
 
-func createPlayModelFromLoadModel(lm loadSongModel, stngs settings) playSongModel {
+func createPlayModelFromLoadModel(lm loadSongModel, stngs *settings) playSongModel {
 	model := createModelFromChart(lm.chart.chart, *lm.selectedTrack, stngs)
 	model.chartInfo.fullFolderPath = lm.chartFolderPath
 	model.chartInfo.track = *lm.selectedTrack
@@ -135,7 +135,7 @@ func (m playSongModel) getStrumLineIndex() int {
 	return m.settings.fretBoardHeight - 5
 }
 
-func createModelFromChart(chart *Chart, trackName trackName, stngs settings) playSongModel {
+func createModelFromChart(chart *Chart, trackName trackName, stngs *settings) playSongModel {
 	realNotes := getNotesWithRealTimestamps(chart, trackName.fullTrackName)
 	playableNotes := make([]playableNote, len(realNotes))
 	for i, note := range realNotes {
